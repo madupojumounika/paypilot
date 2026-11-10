@@ -14,6 +14,31 @@ function extractJson(raw) {
   }
 }
 
+function buildSearchFallback(query, searchResults, budget) {
+  const options = searchResults.slice(0, 5).map((source) => {
+    const text = source.title + ' ' + source.content;
+    const priceMatch = text.match(/(?:₹|Rs\.?\s?|INR\s?)([\d,]+(?:\.\d{1,2})?)/i);
+    return {
+      product: source.title || 'Product listing',
+      merchant: (() => { try { return new URL(source.url).hostname.replace(/^www\./, ''); } catch { return null; } })(),
+      price: priceMatch ? '₹' + priceMatch[1] : null,
+      reason: source.content.slice(0, 360) || 'Open the source to review the product details.',
+      verification: priceMatch ? 'unverified — confirm on seller website' : 'unverified',
+    };
+  });
+  return {
+    summary: 'Web research for “' + query + '” found ' + options.length + ' source listings. The AI provider did not return a usable answer, so these are source-based results rather than AI-verified recommendations.' + (budget ? ' Your stated budget is ₹' + Number(budget).toLocaleString('en-IN') + '; confirm each listing price before deciding.' : ''),
+    criteria: [
+      { label: 'Compare the exact model and specifications', importance: 'must-have' },
+      { label: 'Confirm final price, delivery and return policy', importance: 'must-have' },
+      { label: 'Check seller reputation and warranty', importance: 'nice-to-have' },
+    ],
+    options,
+    questions: ['What screen size, performance level or key features matter most?'],
+    safetyNote: 'No purchase has been made. Prices and availability can change; verify details directly with the seller.',
+  };
+}
+
 router.post('/plan', async (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
   const budget = Number(req.body?.budget);
@@ -90,11 +115,23 @@ router.post('/plan', async (req, res) => {
       return res.status(status).json({ error: aiResponse.status === 429 ? 'The free AI model is rate-limited. Try again later.' : 'Free AI model request failed. Check the OpenRouter key and selected free model.' });
     }
 
-    const raw = aiPayload.choices?.[0]?.message?.content;
-    if (typeof raw !== 'string' || !raw.trim()) return res.status(502).json({ error: 'The AI model returned an empty response. Please retry.' });
+    const messageContent = aiPayload.choices?.[0]?.message?.content;
+    const raw = typeof messageContent === 'string'
+      ? messageContent
+      : Array.isArray(messageContent)
+        ? messageContent.map(part => typeof part === 'string' ? part : part?.text || '').join('\n')
+        : '';
     let result;
-    try { result = extractJson(raw); }
-    catch { return res.status(502).json({ error: 'The AI model returned an unreadable result. Please retry.' }); }
+    let usedFallback = false;
+    if (raw.trim()) {
+      try { result = extractJson(raw); }
+      catch { usedFallback = true; }
+    } else {
+      usedFallback = true;
+    }
+    if (usedFallback || !result || !Array.isArray(result.options)) {
+      result = buildSearchFallback(query, searchResults, budget);
+    }
 
     const safeSources = searchResults
       .filter(source => {
@@ -105,7 +142,7 @@ router.post('/plan', async (req, res) => {
     return res.json({
       result,
       sources: safeSources,
-      provider: 'OpenRouter (free model) + Tavily Search',
+      provider: usedFallback ? 'Tavily web search · source-based fallback (AI response unavailable)' : 'OpenRouter (free model) + Tavily Search',
       note: 'Free-tier research. Confirm price, stock and seller details on the merchant website before purchasing.',
     });
   } catch (error) {
