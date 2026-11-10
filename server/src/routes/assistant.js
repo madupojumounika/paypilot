@@ -12,7 +12,7 @@ router.post('/plan', async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'AI shopping is not configured. Add GEMINI_API_KEY on the server.' });
 
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const budgetLine = req.body?.budget !== undefined ? 'The user's maximum budget is ' + budget + ' INR.' : 'Ask for a budget if it is essential.';
+  const budgetLine = req.body?.budget !== undefined ? 'User maximum budget: ' + budget + ' INR.' : 'Ask for a budget if it is essential.';
   const prompt = [
     'You are PayPilot AI, a cautious shopping research assistant for users in India.',
     'Research the request using Google Search grounding. ' + budgetLine,
