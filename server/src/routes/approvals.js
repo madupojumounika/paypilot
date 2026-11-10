@@ -50,6 +50,22 @@ router.patch('/:id', async (req, res, next) => {
       const approval = await Approval.findOne({ _id: req.params.id, userId: req.userId }).session(session);
       if (!approval) { response = { status: 404, body: { error: 'Approval request not found.' } }; return; }
       if (approval.status !== 'pending') { response = { status: 409, body: { error: 'This request has already been reviewed.' } }; return; }
+      if (decision === 'approved') {
+        const currentRules = await SpendingRule.find({ userId: req.userId, enabled: true }).session(session);
+        const exceeded = currentRules.find(rule => (rule.category === 'all' || rule.category === approval.category) && rule.spent + approval.amount > rule.limit);
+        if (exceeded) { response = { status: 403, body: { error: 'The request now exceeds the "' + exceeded.name + '" spending rule.' } }; return; }
+        const user = await User.findById(req.userId).session(session);
+        const monthStart = new Date();
+        monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+        const monthly = await Transaction.aggregate([
+          { $match: { userId: new mongoose.Types.ObjectId(req.userId), status: 'approved_pending_payment', createdAt: { $gte: monthStart } } },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]).session(session);
+        if (!user || (monthly[0]?.total || 0) + approval.amount > user.monthlyBudget) {
+          response = { status: 403, body: { error: 'The request now exceeds your monthly budget.' } };
+          return;
+        }
+      }
       approval.status = decision;
       approval.decisionAt = new Date();
       await approval.save({ session });
