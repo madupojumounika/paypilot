@@ -730,3 +730,271 @@
     max-height:150px;
   }
 }
+
+
+/* PayPilot visual refresh — refined fintech workspace */
+:root{
+  --pilot-ink:#14243a;
+  --pilot-navy:#10243d;
+  --pilot-blue:#2864dc;
+  --pilot-blue-dark:#1d4fae;
+  --pilot-mint:#dff5ec;
+  --pilot-canvas:#f4f6f9;
+}
+.app-shell{
+  --bg:#f4f6f9;
+  --panel:#ffffff;
+  --sidebar:#10243d;
+  --text:#14243a;
+  --muted:#748398;
+  --border:#e5eaf0;
+  --soft:#f4f7fa;
+  --chart-grid:#e9eef4;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+}
+.app-shell .sidebar{
+  width:258px;
+  padding:25px 17px 16px;
+  background:#10243d;
+  border-right:1px solid #1c3552;
+  color:#edf4fc;
+}
+.app-shell .brand{padding:0 10px 29px}
+.app-shell .brand-mark{
+  width:34px;height:34px;border-radius:11px;
+  background:#3478ed;color:#fff;
+  box-shadow:0 5px 14px #07172b66;
+}
+.app-shell .brand-name{color:#f5f8fd;font-size:20px;letter-spacing:-.9px}
+.app-shell .brand-ai{color:#83b4ff}
+.app-shell .workspace-switch{
+  background:#18324f;border:1px solid #2b4562;border-radius:12px;
+  padding:11px;margin:0 1px 30px;
+}
+.app-shell .workspace-avatar{background:#dceaff;color:#2458ad;border-radius:9px}
+.app-shell .workspace-copy strong,.app-shell .profile-copy strong{color:#f0f5fc}
+.app-shell .workspace-copy span,.app-shell .profile-copy span{color:#a9b9cc}
+.app-shell .nav-heading{color:#8499b2;font-size:9px;letter-spacing:1.25px}
+.app-shell .side-nav{gap:25px}
+.app-shell .nav-group{gap:4px}
+.app-shell .nav-item{
+  min-height:41px;border-radius:9px;padding:0 12px;
+  color:#b2c1d3;font-size:12px;transition:background .18s,color .18s;
+}
+.app-shell .nav-item:hover{background:#1b3859;color:#fff}
+.app-shell .nav-item.active{
+  background:#244b79;color:#fff;font-weight:700;
+  box-shadow:inset 3px 0 0 #77aaff;
+}
+.app-shell .nav-count{background:#dceaff;color:#214f9c}
+.app-shell .sidebar-bottom .security-note{
+  background:#18324f;border:1px solid #2b4562;border-radius:11px;
+}
+.app-shell .security-icon{color:#8db9ff}
+.app-shell .security-note strong{color:#edf4fc}
+.app-shell .security-note span{color:#a9b9cc}
+.app-shell .help-link{color:#aebed0}
+.app-shell .profile-row{border-color:#2b4059}
+.app-shell .profile-avatar{background:#dceaff;color:#2458ad}
+.app-shell .sidebar .icon-button{color:#aebed0}
+.app-shell .sidebar .icon-button:hover{background:#24415f;color:#fff}
+.app-shell .main-area{margin-left:258px;background:#f4f6f9}
+.app-shell .topbar{
+  height:70px;padding:0 40px;background:#fff;
+  border-bottom:1px solid #e6ebf1;box-shadow:0 2px 9px #172b4406;
+}
+.app-shell .breadcrumb{font-size:11px;color:#8b98a9}
+.app-shell .breadcrumb strong{color:#263a52}
+.app-shell .search-box{
+  height:36px;width:220px;border-radius:9px;
+  background:#f8fafc;border-color:#e7ecf2;
+}
+.app-shell .search-box:focus-within{border-color:#8eb3f5;box-shadow:0 0 0 3px #2864dc12}
+.app-shell .icon-button{border-radius:9px}
+.app-shell .icon-button:hover{background:#edf3fb;color:#245bb7}
+.app-shell .top-avatar{background:#e3edfb;color:#285ba8}
+.app-shell .topbar-signout{border-radius:8px}
+.app-shell .page-content{max-width:1500px;padding:37px 40px 50px}
+.app-shell .eyebrow{color:#6f86a2;letter-spacing:1.35px;font-size:9px}
+.app-shell .page-heading{margin-bottom:27px}
+.app-shell .page-heading h1,.app-shell .placeholder-panel h1{
+  color:#14243a;font-family:Manrope,sans-serif;
+  font-size:27px;letter-spacing:-1.05px;font-weight:800;
+}
+.app-shell .page-heading p,.app-shell .panel-heading p{color:#7b899b;font-size:11px}
+.app-shell .primary-button{
+  min-height:38px;border-radius:9px;padding:0 15px;
+  background:#2864dc;border-color:#2864dc;
+  box-shadow:0 4px 10px #2864dc24;font-size:10px;
+}
+.app-shell .primary-button:hover{background:#1d4fae;border-color:#1d4fae;transform:translateY(-1px)}
+.app-shell .secondary-button{
+  min-height:36px;border-radius:9px;background:#fff;border-color:#e2e8f0;
+}
+.app-shell .secondary-button:hover{background:#f4f7fb;border-color:#cbd7e5}
+.app-shell .metric-grid{gap:15px;margin-bottom:18px}
+.app-shell .metric-card,.app-shell .panel{
+  border:1px solid #e5eaf0;border-radius:13px;
+  box-shadow:0 3px 14px #1a2c4308;
+}
+.app-shell .metric-card{padding:18px 19px;min-height:132px}
+.app-shell .metric-card:hover{box-shadow:0 7px 22px #1a2c4310}
+.app-shell .metric-top{font-size:10px;color:#77879a}
+.app-shell .metric-icon{width:33px;height:33px;border-radius:10px}
+.app-shell .metric-icon.blue{background:#eaf1ff;color:#2864dc}
+.app-shell .metric-icon.green{background:#e6f6ef;color:#21845e}
+.app-shell .metric-icon.orange{background:#fff2e5;color:#c77b32}
+.app-shell .metric-icon.violet{background:#f1edff;color:#785ac5}
+.app-shell .metric-value{font-size:25px;color:#14243a;letter-spacing:-1px}
+.app-shell .metric-foot{font-size:9px;color:#8190a2}
+.app-shell .content-grid{gap:17px;margin-bottom:18px}
+.app-shell .panel{padding:20px}
+.app-shell .panel-heading h2{font-size:13px;color:#1d3048}
+.app-shell .select-button{height:31px;border-radius:8px;background:#fff}
+.app-shell .permission-hero{background:#f0f5fd;border-color:#e4edf9;border-radius:10px}
+.app-shell .permission-shield{background:#dfebff;color:#2864dc;border-radius:9px}
+.app-shell .permission-row{border-color:#edf0f4}
+.app-shell .transactions-panel{padding-bottom:8px}
+.app-shell .transaction-row{border-color:#edf0f4;padding:13px 4px}
+.app-shell .merchant-logo{border-radius:10px}
+.app-shell .placeholder-icon{background:#eaf1ff;color:#2864dc;border-radius:14px}
+.app-shell .approval-modal{border-radius:16px;box-shadow:0 22px 70px #0c1b2c35}
+.app-shell .ai-search-panel{
+  border:1px solid #dce7f5;border-radius:15px;
+  background:linear-gradient(112deg,#f0f5fd 0%,#f8fbff 58%,#eef5ff 100%);
+  box-shadow:0 5px 20px #1b3d6810;padding:23px 24px;
+}
+.app-shell .ai-orb{
+  width:43px;height:43px;border-radius:13px;
+  background:#2864dc;color:#fff;box-shadow:0 5px 13px #2864dc2c;
+}
+.app-shell .ai-search-content h2{font-family:Manrope,sans-serif;font-size:16px;letter-spacing:-.35px;color:#18304d}
+.app-shell .ai-search-content>p{color:#72839a}
+.app-shell .ai-input-row input{
+  min-height:43px;border:1px solid #dce4ee;border-radius:9px;
+  background:#fff;padding:0 14px;color:#20344d;font-size:11px;
+}
+.app-shell .ai-input-row input:focus{outline:0;border-color:#82a9ef;box-shadow:0 0 0 3px #2864dc12}
+.app-shell .suggestion-chips button{
+  border:1px solid #dce5f0;border-radius:20px;
+  background:#fff;color:#526b88;padding:7px 11px;
+  font-size:9px;transition:.16s;
+}
+.app-shell .suggestion-chips button:hover{border-color:#9bb9ec;background:#edf4ff;color:#245bb7}
+.app-shell .shopping-chat{border-radius:13px;overflow:hidden}
+.app-shell .shopping-chat-heading{padding:15px 18px;border-bottom:1px solid #e9eef4}
+.app-shell .shopping-chat-heading>div:first-child{
+  width:34px;height:34px;border-radius:10px;background:#eaf1ff;color:#2864dc;
+}
+.app-shell .shopping-chat-heading strong{font-size:12px;color:#1d3048}
+.app-shell .shopping-chat-heading small{color:#8997a8}
+.app-shell .chat-status{font-size:9px;color:#7b8b9e}
+.app-shell .shopping-chat-messages{background:#f8fafc;padding:18px;gap:14px}
+.app-shell .shopping-chat-bubble{
+  border:1px solid #e5eaf0;border-radius:13px 13px 13px 4px;
+  box-shadow:0 2px 7px #1b2d4208;padding:12px 14px;
+  color:#4b5e74;background:#fff;
+}
+.app-shell .shopping-chat-row.user .shopping-chat-bubble{
+  border-color:#d7e5fb;background:#eaf2ff;color:#244c7e;
+  border-radius:13px 13px 4px 13px;
+}
+.app-shell .shopping-chat-bubble p{font-size:11px;line-height:1.7}
+.app-shell .chat-thinking{color:#637d9c}
+.app-shell .chat-thinking span{background:#3978ee}
+.app-shell .ai-research-summary{
+  border:1px solid #e7edf4;border-radius:10px;
+  background:#f8fafc;color:#50647c;padding:15px 16px;
+}
+.app-shell .ai-product-grid{gap:16px}
+.app-shell .ai-product-card{
+  border:1px solid #e4eaf1;border-radius:13px;background:#fff;
+  box-shadow:0 3px 12px #14294308;overflow:hidden;
+}
+.app-shell .ai-product-card:hover{
+  transform:translateY(-3px);border-color:#cbdaf0;
+  box-shadow:0 10px 24px #14294312;
+}
+.app-shell a.ai-product-image{background:#fff;border-bottom:1px solid #f0f2f5}
+.app-shell .ai-product-card-body{padding:16px}
+.app-shell .ai-product-merchant{color:#7d8da1;font-size:9px;letter-spacing:.8px}
+.app-shell .ai-product-card h4{font-size:13px;line-height:1.55;color:#1d3048}
+.app-shell .ai-product-price{font-size:20px;color:#173c70}
+.app-shell .ai-product-view-link{color:#2864dc;font-size:10px}
+.app-shell .ai-research-columns h3,.app-shell .ai-research-questions>strong{color:#263c57}
+.app-shell .ai-research-line strong,.app-shell .ai-option strong{color:#263c57}
+.app-shell .safety-banner{background:#edf7f2;border-color:#d9eee4;border-radius:10px}
+.app-shell .demo-footnote{color:#8997a8}
+.app-shell .mobile-scrim{background:#0a1b2dcc}
+
+/* Dark mode uses the same visual system without changing layout. */
+.app-shell.dark{
+  --bg:#101a29;--panel:#17263a;--sidebar:#0d1b2d;
+  --text:#e9f1fa;--muted:#9aabc0;--border:#2a3b51;
+  --soft:#1d3047;--chart-grid:#2a3b51;
+  background:#101a29;color:#e9f1fa;
+}
+.app-shell.dark .sidebar{background:#0d1b2d;border-color:#263b54}
+.app-shell.dark .brand-name,.app-shell.dark .page-heading h1,
+.app-shell.dark .placeholder-panel h1,.app-shell.dark .panel-heading h2,
+.app-shell.dark .metric-value{color:#edf4fc}
+.app-shell.dark .workspace-switch,.app-shell.dark .sidebar-bottom .security-note{
+  background:#142940;border-color:#2a425d;
+}
+.app-shell.dark .main-area{background:#101a29}
+.app-shell.dark .topbar{background:#142338;border-color:#2a3b51}
+.app-shell.dark .breadcrumb strong{color:#e5edf7}
+.app-shell.dark .search-box{background:#172b42;border-color:#30445d}
+.app-shell.dark .search-box input{color:#e5edf7}
+.app-shell.dark .top-avatar{background:#24466b;color:#d8eaff}
+.app-shell.dark .metric-card,.app-shell.dark .panel,
+.app-shell.dark .approval-modal{background:#17263a;border-color:#2a3b51}
+.app-shell.dark .panel-heading h2,.app-shell.dark .metric-top,
+.app-shell.dark .metric-foot,.app-shell.dark .page-heading p{color:#a7b7ca}
+.app-shell.dark .select-button,.app-shell.dark .secondary-button{
+  background:#1b2e45;border-color:#344a63;color:#d8e4f2;
+}
+.app-shell.dark .permission-hero{background:#1b304a;border-color:#304761}
+.app-shell.dark .permission-shield,.app-shell.dark .placeholder-icon{
+  background:#24466b;color:#9bc4ff;
+}
+.app-shell.dark .ai-search-panel{
+  background:linear-gradient(112deg,#172b43,#1b3049);
+  border-color:#304761;
+}
+.app-shell.dark .ai-search-content h2,.app-shell.dark .shopping-chat-heading strong,
+.app-shell.dark .ai-product-card h4{color:#e8f0fa}
+.app-shell.dark .ai-input-row input,.app-shell.dark .suggestion-chips button{
+  background:#122238;border-color:#344a63;color:#e2ebf6;
+}
+.app-shell.dark .shopping-chat-heading{border-color:#2b4058}
+.app-shell.dark .shopping-chat-messages{background:#122238}
+.app-shell.dark .shopping-chat-bubble{background:#1b2e45;border-color:#344a63;color:#d2deec}
+.app-shell.dark .shopping-chat-row.user .shopping-chat-bubble{
+  background:#203e60;border-color:#345a80;color:#e1efff;
+}
+.app-shell.dark .ai-research-summary{background:#1b2e45;border-color:#344a63;color:#d2deec}
+.app-shell.dark .ai-product-card{background:#17263a;border-color:#30445d}
+.app-shell.dark a.ai-product-image{background:#fff}
+.app-shell.dark .ai-product-price{color:#b9d4ff}
+.app-shell.dark .ai-product-view-link{color:#91baff}
+.app-shell.dark .transaction-row,.app-shell.dark .permission-row{border-color:#2a3b51}
+.app-shell.dark .security-note strong{color:#e8f0fa}
+.app-shell.dark .security-note span{color:#a7b7ca}
+.app-shell.dark .search-box:focus-within{border-color:#6f9fe8}
+@media(max-width:900px){
+  .app-shell .sidebar{width:258px}
+  .app-shell .main-area{margin-left:0}
+  .app-shell .topbar{padding:0 22px}
+  .app-shell .page-content{padding:28px 22px 42px}
+}
+@media(max-width:600px){
+  .app-shell .page-content{padding:22px 14px 34px}
+  .app-shell .topbar{padding:0 14px}
+  .app-shell .page-heading h1{font-size:23px}
+  .app-shell .panel{padding:15px}
+  .app-shell .ai-search-panel{padding:17px}
+  .app-shell .ai-product-grid{gap:9px}
+}
