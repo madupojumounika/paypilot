@@ -11,8 +11,8 @@ import {
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 type Page = 'Overview' | 'AI Shopping' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
-type Tx = { id:number; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
-type Rule = { id:number; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
+type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
+type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
 type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
 declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
 const nav = [
@@ -56,15 +56,15 @@ const App = () => {
   const [mobileOpen,setMobileOpen] = useState(false);
   const [notice,setNotice] = useState('');
   const [query,setQuery] = useState('');
-  const [tx,setTx] = usePersistentState('paypilot:transactions',initialTx);
-  const [rules,setRules] = usePersistentState('paypilot:rules',initialRules);
-  const [requests,setRequests] = usePersistentState('paypilot:requests',approvalRequests);
-  const [approved,setApproved] = usePersistentState<number[]>('paypilot:approved',[]);
-  const [denied,setDenied] = usePersistentState<number[]>('paypilot:denied',[]);
+  const [tx,setTx] = useState<Tx[]>([]);
+  const [rules,setRules] = useState<Rule[]>([]);
+  const [requests,setRequests] = useState<any[]>([]);
+  const approved = requests.filter(a=>a.status==='approved').map(a=>a.id);
+  const denied = requests.filter(a=>a.status==='declined').map(a=>a.id);
   const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:number}|null>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
-  const [connected,setConnected] = usePersistentState<string[]>('paypilot:connected',['PayPal']);
+  const [connected] = useState<string[]>([]);
   const [budget,setBudget] = usePersistentState('paypilot:budget','40000');
   const [name,setName] = usePersistentState('paypilot:name','');
   const [email,setEmail] = usePersistentState('paypilot:email','');
