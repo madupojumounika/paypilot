@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePersistentState } from './hooks/usePersistentState';
 import { apiRequest } from './lib/api';
 import {
-  Activity, ArrowUpRight, Bell, Bookmark, Check, ChevronDown, CircleHelp, Compass,
+  Activity, ArrowUpRight, Bell, Bookmark, Check, CircleHelp, Compass,
   CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
   ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
   Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
