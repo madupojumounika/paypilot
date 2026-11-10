@@ -15,15 +15,50 @@ function decodeHtml(value = '') {
   return String(value).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).trim();
 }
 
+function readAttributes(tag) {
+  const attributes = {};
+  for (const match of tag.matchAll(/([:\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) {
+    attributes[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4] ?? '';
+  }
+  return attributes;
+}
+
 function metaContent(html, key) {
   const tags = html.match(/<meta\b[^>]*>/gi) || [];
   for (const tag of tags) {
-    const name = tag.match(/(?:property|name|itemprop)=["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    const attributes = readAttributes(tag);
+    const name = (attributes.property || attributes.name || attributes.itemprop || '').toLowerCase();
     if (name !== key.toLowerCase()) continue;
-    const content = tag.match(/content=["']([^"']*)["']/i)?.[1];
+    const content = attributes.content || attributes.value;
     if (content) return decodeHtml(content);
   }
   return '';
+}
+
+function readProductImage(html, pageUrl) {
+  const tags = html.match(/<img\b[^>]*>/gi) || [];
+  const candidates = [];
+  for (const tag of tags) {
+    const attrs = readAttributes(tag);
+    const context = [attrs.alt, attrs.id, attrs.class, attrs.itemprop].join(' ').toLowerCase();
+    if (/logo|icon|sprite|banner|avatar|badge|payment|flag/.test(context)) continue;
+    let source = attrs['data-old-hires'] || attrs['data-src'] || attrs['data-original'] || attrs['data-lazy-src'] || attrs.src || '';
+    if (!source && attrs['data-a-dynamic-image']) {
+      try { source = Object.keys(JSON.parse(attrs['data-a-dynamic-image']))[0] || ''; } catch {}
+    }
+    if (!source && attrs.srcset) source = attrs.srcset.split(',')[0].trim().split(/\s+/)[0];
+    if (!source || source.startsWith('data:')) continue;
+    try {
+      const url = new URL(source, pageUrl);
+      if (url.protocol !== 'https:') continue;
+      const score = (/product|main|gallery|hero|item|image|photo/.test(context) ? 4 : 0)
+        + (attrs.alt ? 2 : 0)
+        + (attrs.width && Number(attrs.width) >= 180 ? 1 : 0);
+      candidates.push({ url: url.href, score });
+    } catch {}
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.url || '';
 }
 
 function readStructuredProduct(html) {
@@ -39,7 +74,7 @@ function readStructuredProduct(html) {
         if (Array.isArray(node)) { queue.push(...node); continue; }
         if (node['@graph']) queue.push(...(Array.isArray(node['@graph']) ? node['@graph'] : [node['@graph']]));
         const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
-        if (types.includes('Product')) {
+        if (types.some(type => String(type || '').toLowerCase() === 'product' || String(type || '').toLowerCase().endsWith('/product'))) {
           const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers;
           const imageValue = Array.isArray(node.image) ? node.image[0] : node.image;
           return {
@@ -76,6 +111,53 @@ function merchantName(url) {
   } catch { return 'Seller website'; }
 }
 
+async function fillMissingProductImages(products) {
+  const missing = products.filter(product => !product.image);
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!missing.length || !apiKey) return products;
+  try {
+    const response = await fetch('https://api.tavily.com/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey,
+        urls: missing.map(product => product.url),
+        extract_depth: 'basic',
+        include_images: true,
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!response.ok) return products;
+    const payload = await response.json();
+    const imagesByUrl = new Map((payload.results || []).map(result => [
+      result.url,
+      Array.isArray(result.images) ? result.images : [],
+    ]));
+    return products.map(product => {
+      if (product.image) return product;
+      const images = imagesByUrl.get(product.url) || [];
+      const candidates = images.map(image => ({
+        url: typeof image === 'string' ? image : image?.url,
+        description: typeof image === 'object' ? image?.description || '' : '',
+      })).filter(image => {
+        if (!image.url) return false;
+        try {
+          const parsed = new URL(image.url);
+          return parsed.protocol === 'https:' && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
+        } catch { return false; }
+      });
+      const titleWords = product.title.toLowerCase().split(/\W+/).filter(word => word.length > 3);
+      candidates.sort((a, b) => {
+        const score = candidate => titleWords.reduce((total, word) => total + (candidate.description.toLowerCase().includes(word) ? 1 : 0), 0);
+        return score(b) - score(a);
+      });
+      return candidates[0] ? { ...product, image: candidates[0].url } : product;
+    });
+  } catch {
+    return products;
+  }
+}
+
 async function enrichShoppingPages(searchResults) {
   const candidates = searchResults.filter(item => {
     try {
@@ -103,7 +185,7 @@ async function enrichShoppingPages(searchResults) {
       const html = (await response.text()).slice(0, 1200000);
       const structured = readStructuredProduct(html);
       const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
-      const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image');
+      const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image') || readProductImage(html, item.url);
       const description = metaContent(html, 'og:description') || metaContent(html, 'description');
       const price = metaContent(html, 'product:price:amount') || metaContent(html, 'og:price:amount') || structured?.price;
       const currency = metaContent(html, 'product:price:currency') || structured?.currency || 'INR';
@@ -248,10 +330,11 @@ router.post('/plan', async (req, res) => {
       .map(({ title, url }) => ({ title: title || url, url }));
 
     const products = await enrichShoppingPages(searchResults);
+    const productsWithImages = await fillMissingProductImages(products);
 
     return res.json({
       result,
-      products,
+      products: productsWithImages,
       sources: safeSources,
       provider: usedFallback ? 'Tavily web search · source-based fallback (AI response unavailable)' : 'OpenRouter (free model) + Tavily Search',
       note: 'Free-tier research. Confirm price, stock and seller details on the merchant website before purchasing.',
