@@ -81,7 +81,7 @@ const App = () => {
         setBudget(String(profileData.user.monthlyBudget));
         setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
         setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
+        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
       } catch (error) {
         if (active) setApiError(error instanceof Error ? error.message : 'Could not load your account data.');
       }
@@ -126,7 +126,7 @@ const App = () => {
   const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
   const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:7},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-6+index);const key=date.toDateString();return {day:date.toLocaleDateString(undefined,{weekday:'short'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx]);
   const availableBudget = Math.max(0,monthlyBudget-committedAmount);
-  const budgetUsed = monthlyBudget>0?Math.min(100,spentAmount/monthlyBudget*100):0;
+  const budgetUsed = monthlyBudget>0?Math.min(100,committedAmount/monthlyBudget*100):0;
   const pendingCount = requests.filter(a=>a.status==='pending').length;
   const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
   const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
@@ -169,7 +169,7 @@ const App = () => {
     } catch(error) { setModal(null);setApiError(error instanceof Error?error.message:'Could not create purchase request.'); }
   };
   const toggleSaved = (id:number) => setSavedProducts(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
-  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{t.date}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
+  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
 
   if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
     <div className="pp-announcement"><span>MEET A MORE THOUGHTFUL WAY TO SHOP</span><a href="#pp-how">See how PayPilot works <ArrowUpRight size={13}/></a></div>
