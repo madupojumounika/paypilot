@@ -22,3 +22,5 @@ jobs:
         run: npm run build
       - name: Validate API JavaScript syntax
         run: npm run check:server
+      - name: Run API smoke tests
+        run: npm run test:server
