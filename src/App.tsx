@@ -40,6 +40,7 @@ const products = [
   {id:1,name:'Sony WH-CH720N',category:'Electronics',price:7490,old:9990,rating:'4.4',merchant:'Amazon',tag:'Best value',saving:2500,icon:'🎧',keywords:'wireless headphones noise cancelling audio'},
   {id:2,name:'Logitech MX Master 3S',category:'Electronics',price:8495,old:10995,rating:'4.7',merchant:'Flipkart',tag:'Top rated',saving:2500,icon:'🖱️',keywords:'mouse ergonomic productivity computer'},
   {id:3,name:'Kindle Paperwhite',category:'Books & learning',price:13999,old:15999,rating:'4.6',merchant:'Amazon',tag:'Popular',saving:2000,icon:'📖',keywords:'ebook reader kindle books reading'},
+  {id:4,name:'OnePlus Nord Buds 3',category:'Electronics',price:2299,old:2799,rating:'4.3',merchant:'Amazon',tag:'Budget pick',saving:500,icon:'🎧',keywords:'wireless headphones earbuds audio'},
 ];
 const approvalRequests = [
   {id:1,name:'Figma Professional',detail:'Monthly subscription · Figma, Inc.',amount:1200,kind:'Software',icon:'F',tone:'rose',merchant:'Figma, Inc.'},
