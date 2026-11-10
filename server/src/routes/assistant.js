@@ -98,7 +98,7 @@ async function enrichShoppingPages(searchResults) {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PayPilotResearch/1.0)', 'Accept': 'text/html,application/xhtml+xml' },
         signal: AbortSignal.timeout(6500),
       });
-      if (!response.ok) return product;
+      if (!response.ok) return isProductPageUrl(item.url) ? product : null;
       const html = (await response.text()).slice(0, 1200000);
       const structured = readStructuredProduct(html);
       const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
