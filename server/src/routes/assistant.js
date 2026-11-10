@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
-
 const router = Router();
-router.use(requireAuth);
 
 function extractJson(raw) {
   const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');

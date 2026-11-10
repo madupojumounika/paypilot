@@ -11,7 +11,7 @@ import assistantRoutes from './routes/assistant.js';
 const app = express();
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',').map(value => value.trim());
 
-app.use(helmet());
+app.use(helmet({ crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, contentSecurityPolicy: { directives: { ...helmet.contentSecurityPolicy.getDefaultDirectives(), 'script-src': ["'self'", 'https://accounts.google.com/gsi/client'], 'frame-src': ["'self'", 'https://accounts.google.com/gsi/'], 'connect-src': ["'self'", 'https://accounts.google.com/gsi/', 'https://oauth2.googleapis.com'], 'style-src': ["'self'", "'unsafe-inline'", 'https://accounts.google.com/gsi/style'] } } }));
 app.use(cors({ origin: (origin, callback) => {
   if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
   return callback(new Error('Origin is not allowed by CORS.'));

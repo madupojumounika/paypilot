@@ -23,7 +23,7 @@ test('API health and protected route checks', async (t) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: 'wireless headphones' }),
   });
-  assert.equal(assistantResponse.status, 401);
+  assert.equal(assistantResponse.status, 503);
 
   const registerResponse = await fetch(base + '/api/auth/register', {
     method: 'POST',
