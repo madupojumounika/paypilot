@@ -15,27 +15,16 @@ function extractJson(raw) {
 }
 
 function buildSearchFallback(query, searchResults, budget) {
-  const options = searchResults.slice(0, 5).map((source) => {
-    const text = source.title + ' ' + source.content;
-    const priceMatch = text.match(/(?:₹|Rs\.?\s?|INR\s?)([\d,]+(?:\.\d{1,2})?)/i);
-    return {
-      product: source.title || 'Product listing',
-      merchant: (() => { try { return new URL(source.url).hostname.replace(/^www\./, ''); } catch { return null; } })(),
-      price: priceMatch ? '₹' + priceMatch[1] : null,
-      reason: source.content.slice(0, 360) || 'Open the source to review the product details.',
-      verification: priceMatch ? 'unverified — confirm on seller website' : 'unverified',
-    };
-  });
   return {
-    summary: 'Web research for “' + query + '” found ' + options.length + ' source listings. The AI provider did not return a usable answer, so these are source-based results rather than AI-verified recommendations.' + (budget ? ' Your stated budget is ₹' + Number(budget).toLocaleString('en-IN') + '; confirm each listing price before deciding.' : ''),
+    summary: 'Web search found ' + searchResults.length + ' relevant shopping pages for “' + query + '”. The free AI model did not return a usable comparison, so PayPilot is showing source links only. It will not turn articles, videos or search snippets into fake product cards or guess prices.' + (budget ? ' Search budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
     criteria: [
-      { label: 'Compare the exact model and specifications', importance: 'must-have' },
-      { label: 'Confirm final price, delivery and return policy', importance: 'must-have' },
-      { label: 'Check seller reputation and warranty', importance: 'nice-to-have' },
+      { label: 'Compare the exact model and specifications on the seller page', importance: 'must-have' },
+      { label: 'Confirm the final selling price, delivery and return policy', importance: 'must-have' },
+      { label: 'Check seller reputation, warranty and stock', importance: 'nice-to-have' },
     ],
-    options,
-    questions: ['What screen size, performance level or key features matter most?'],
-    safetyNote: 'No purchase has been made. Prices and availability can change; verify details directly with the seller.',
+    options: [],
+    questions: ['Try again shortly if you want an AI-generated product comparison.'],
+    safetyNote: 'Source links are research leads, not verified offers. Confirm product model, price and availability directly with the seller. No purchase has been made.',
   };
 }
 
@@ -56,9 +45,10 @@ router.post('/plan', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: query + ' product price India official store specifications',
+        query: query + ' buy price India product listing',
         search_depth: 'basic',
-        max_results: 5,
+        max_results: 8,
+        include_domains: ['amazon.in', 'flipkart.com', 'croma.com', 'reliancedigital.in', 'vijaysales.com', 'lenovo.com', 'hp.com', 'dell.com', 'asus.com', 'acer.com'],
         include_answer: false,
         include_raw_content: false,
       }),
@@ -70,7 +60,7 @@ router.post('/plan', async (req, res) => {
       return res.status(502).json({ error: 'Product web search failed. Check your Tavily free-tier key and quota.' });
     }
 
-    const searchResults = (searchPayload.results || []).slice(0, 5).map(item => ({
+    const searchResults = (searchPayload.results || []).filter(item => !/youtube\\.com|youtu\\.be/i.test(item.url || '')).slice(0, 8).map(item => ({
       title: String(item.title || '').slice(0, 240),
       url: item.url,
       content: String(item.content || '').slice(0, 1800),
