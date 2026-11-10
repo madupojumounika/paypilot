@@ -480,3 +480,8 @@
 .ai-product-view-link{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:9px;color:var(--accent,#2874dc);font-size:11px;font-weight:700;text-decoration:none}
 .ai-product-view-link:hover{text-decoration:underline}
 @media(max-width:560px){.ai-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ai-product-image{height:138px}.ai-product-card-body{padding:10px}.ai-product-card h4{font-size:11px}.ai-product-price{font-size:15px}.ai-products-heading h3{font-size:13px}}
+
+
+.google-fallback-button{width:100%;height:43px;border:1px solid #d6dce5;border-radius:6px;background:#fff;color:#263449;display:flex;align-items:center;justify-content:center;gap:11px;font-size:12px;font-weight:650;cursor:pointer;transition:background .18s,border-color .18s}
+.google-fallback-button:hover{background:#f8fafc;border-color:#aeb9c8}
+.google-fallback-button svg{width:17px;height:17px;flex:none}
