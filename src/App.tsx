@@ -3,7 +3,7 @@ import {
   Activity, ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, CircleHelp,
   CreditCard, LayoutDashboard, LifeBuoy, LockKeyhole, Menu, Moon,
   Search, Settings, ShieldCheck, ShoppingBag, SlidersHorizontal,
-  Sparkles, Sun, Wallet, X, Check, Clock3, Plus, MoreHorizontal
+  Sparkles, Sun, Wallet, X, Check, Clock3, MoreHorizontal
 } from 'lucide-react';
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis
