@@ -42,17 +42,16 @@ function isLikelyProductImage(imageUrl, productUrl) {
     if (image.protocol !== 'https:' || image.href === page.href) return false;
     const path = image.pathname.toLowerCase();
     const full = (image.hostname + path).toLowerCase();
-    if (/\\.svg(?:$|\\?)/i.test(path) || /logo|icon|sprite|banner|avatar|badge|meg amenu|megamenu|menu|header|footer|payment|flag/.test(full)) return false;
-    const host = page.hostname.replace(/^www\\./, '');
+    if (/\.svg(?:$|\?)/i.test(path) || /logo|icon|sprite|banner|avatar|badge|megamenu|menu|header|footer|payment|flag/.test(full)) return false;
+    const host = page.hostname.replace(/^www\./, '');
     if (host === 'amazon.in') {
-      return /(^|\\.)m\\.media-amazon\\.com$|(^|\\.)images-na\\.ssl-images-amazon\\.com$/.test(image.hostname)
-        && /\\/images\\/i\\//i.test(path)
-        && !/\\/g\\//i.test(path);
+      return /(^|\.)m\.media-amazon\.com$|(^|\.)images-na\.ssl-images-amazon\.com$/.test(image.hostname)
+        && /\/images\/i\//i.test(path)
+        && !/\/g\//i.test(path);
     }
     return true;
   } catch { return false; }
 }
-
 function readProductImage(html, pageUrl) {
   const tags = html.match(/<img\b[^>]*>/gi) || [];
   const candidates = [];
@@ -175,7 +174,7 @@ async function fillMissingProductImages(products) {
         if (!image.url) return false;
         try {
           const parsed = new URL(image.url);
-          return parsed.protocol === 'https:' && parsed.href !== product.url && !/\.svg(?:$|\?)/i.test(parsed.pathname) && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
+          return isLikelyProductImage(parsed.href, product.url);
         } catch { return false; }
       });
       const titleWords = product.title.toLowerCase().split(/\W+/).filter(word => word.length > 3);
@@ -235,7 +234,7 @@ async function enrichShoppingPages(searchResults) {
         try {
           const imageUrl = new URL(resolvedImage, item.url);
           const productUrl = new URL(item.url);
-          if (imageUrl.protocol === 'https:' && imageUrl.href !== productUrl.href && !/\.svg(?:$|\?)/i.test(imageUrl.pathname)) product.image = imageUrl.href;
+          if (isLikelyProductImage(imageUrl.href, item.url)) product.image = imageUrl.href;
         } catch {}
       }
       if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
