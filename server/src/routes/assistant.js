@@ -60,7 +60,7 @@ router.post('/plan', async (req, res) => {
       return res.status(502).json({ error: 'Product web search failed. Check your Tavily free-tier key and quota.' });
     }
 
-    const searchResults = (searchPayload.results || []).filter(item => !/youtube\\.com|youtu\\.be/i.test(item.url || '')).slice(0, 8).map(item => ({
+    const searchResults = (searchPayload.results || []).filter(item => !/youtube\.com|youtu\.be/i.test(item.url || '')).slice(0, 8).map(item => ({
       title: String(item.title || '').slice(0, 240),
       url: item.url,
       content: String(item.content || '').slice(0, 1800),
