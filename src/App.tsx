@@ -14,7 +14,7 @@ type Page = 'Overview' | 'AI Shopping' | 'Approvals' | 'Activity' | 'Spending ru
 type Tx = { id:number; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
 type Rule = { id:number; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
 type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } }
+declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
 const nav = [
   { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
   { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
