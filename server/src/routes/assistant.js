@@ -35,6 +35,24 @@ function metaContent(html, key) {
   return '';
 }
 
+function isLikelyProductImage(imageUrl, productUrl) {
+  try {
+    const image = new URL(imageUrl, productUrl);
+    const page = new URL(productUrl);
+    if (image.protocol !== 'https:' || image.href === page.href) return false;
+    const path = image.pathname.toLowerCase();
+    const full = (image.hostname + path).toLowerCase();
+    if (/\\.svg(?:$|\\?)/i.test(path) || /logo|icon|sprite|banner|avatar|badge|meg amenu|megamenu|menu|header|footer|payment|flag/.test(full)) return false;
+    const host = page.hostname.replace(/^www\\./, '');
+    if (host === 'amazon.in') {
+      return /(^|\\.)m\\.media-amazon\\.com$|(^|\\.)images-na\\.ssl-images-amazon\\.com$/.test(image.hostname)
+        && /\\/images\\/i\\//i.test(path)
+        && !/\\/g\\//i.test(path);
+    }
+    return true;
+  } catch { return false; }
+}
+
 function readProductImage(html, pageUrl) {
   const tags = html.match(/<img\b[^>]*>/gi) || [];
   const candidates = [];
@@ -47,7 +65,7 @@ function readProductImage(html, pageUrl) {
       try { source = Object.keys(JSON.parse(attrs['data-a-dynamic-image']))[0] || ''; } catch {}
     }
     if (!source && attrs.srcset) source = attrs.srcset.split(',')[0].trim().split(/\s+/)[0];
-    if (!source || source.startsWith('data:')) continue;
+    if (!source || source.startsWith('data:') || !isLikelyProductImage(source, pageUrl)) continue;
     try {
       const url = new URL(source, pageUrl);
       if (url.protocol !== 'https:') continue;
