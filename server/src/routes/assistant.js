@@ -77,7 +77,7 @@ async function enrichShoppingPages(searchResults) {
 
 function buildSearchFallback(query, searchResults, budget) {
   return {
-    summary: 'Web search found ' + searchResults.length + ' relevant shopping pages for “' + query + '”. The free AI model did not return a usable comparison, so PayPilot is showing source links only. It will not turn articles, videos or search snippets into fake product cards or guess prices.' + (budget ? ' Search budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
+    summary: 'Web search found ' + searchResults.length + ' relevant shopping pages for “' + query + '”. The free AI model did not return a usable comparison, so PayPilot is showing visual product listings enriched with details available on the seller pages. It will not turn articles, videos or search snippets into fake product cards or guess prices.' + (budget ? ' Search budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
     criteria: [
       { label: 'Compare the exact model and specifications on the seller page', importance: 'must-have' },
       { label: 'Confirm the final selling price, delivery and return policy', importance: 'must-have' },
