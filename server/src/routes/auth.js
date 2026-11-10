@@ -5,7 +5,8 @@ import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
-const tokenFor = (user) => jwt.sign({ sub: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// Keep users signed in across browser restarts; signing out clears the saved client token.
+const tokenFor = (user) => jwt.sign({ sub: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 const publicUser = (user) => ({ id: user.id, name: user.name, email: user.email, monthlyBudget: user.monthlyBudget, authProvider: user.googleId ? 'google' : 'email' });
 
 router.post('/register', async (req, res, next) => {
