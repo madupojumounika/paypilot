@@ -43,7 +43,7 @@ router.post('/google', async (req, res, next) => {
       return res.status(401).json({ error: 'Google identity verification failed. Please try again.' });
     }
     const email = String(claims.email).trim().toLowerCase();
-    let user = await User.findOne({ $or: [{ googleId: claims.sub }, { email }] });
+    let user = await User.findOne({ $or: [{ googleId: claims.sub }, { email }] }).select('+passwordHash');
     if (user && user.googleId && user.googleId !== claims.sub) return res.status(409).json({ error: 'This email is linked to a different Google account.' });
     if (user && !user.googleId && user.passwordHash) return res.status(409).json({ error: 'An email/password account already exists. Sign in with your password first, then connect Google from account settings.' });
     if (!user) {
