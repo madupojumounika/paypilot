@@ -4,55 +4,113 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 
+function extractJson(raw) {
+  const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+  try { return JSON.parse(cleaned); } catch {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+    throw new Error('The AI provider returned an unreadable response.');
+  }
+}
+
 router.post('/plan', async (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
   const budget = Number(req.body?.budget);
   if (query.length < 3 || query.length > 240) return res.status(400).json({ error: 'Describe what you want to buy (3–240 characters).' });
   if (req.body?.budget !== undefined && (!Number.isFinite(budget) || budget <= 0)) return res.status(400).json({ error: 'Budget must be a positive number.' });
-  if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'AI shopping is not configured. Add GEMINI_API_KEY on the server.' });
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const budgetLine = req.body?.budget !== undefined ? 'User maximum budget: ' + budget + ' INR.' : 'Ask for a budget if it is essential.';
-  const prompt = [
-    'You are PayPilot AI, a cautious shopping research assistant for users in India.',
-    'Research the request using Google Search grounding. ' + budgetLine,
-    'Do not invent product names, merchants, ratings, stock, discounts, URLs, or prices.',
-    'Only describe current facts that are supported by the search results. If you cannot verify a fact, say it is unverified.',
-    'Do not initiate checkout, collect payment details, or recommend bypassing the user spending rules.',
-    'Return valid JSON with this shape: {"summary":string,"criteria":[{"label":string,"importance":"must-have"|"nice-to-have"}],"options":[{"product":string,"merchant":string|null,"price":string|null,"reason":string,"verification":"verified"|"unverified"}],"questions":[string],"safetyNote":string}.',
-    'For each option, use only a price and merchant that are explicitly supported by a search result. If unavailable, set them to null and mark verification unverified.',
-    'User request: ' + query,
-  ].join('\n');
+  const { OPENROUTER_API_KEY, TAVILY_API_KEY } = process.env;
+  if (!OPENROUTER_API_KEY || !TAVILY_API_KEY) {
+    return res.status(503).json({ error: 'Free AI research is not configured. Add OPENROUTER_API_KEY and TAVILY_API_KEY to the server environment.' });
+  }
 
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+    const searchResponse = await fetch('https://api.tavily.com/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+        api_key: TAVILY_API_KEY,
+        query: query + ' product price India official store specifications',
+        search_depth: 'basic',
+        max_results: 5,
+        include_answer: false,
+        include_raw_content: false,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const searchPayload = await searchResponse.json();
+    if (!searchResponse.ok) {
+      console.error('Tavily search failed:', searchPayload);
+      return res.status(502).json({ error: 'Product web search failed. Check your Tavily free-tier key and quota.' });
+    }
+
+    const searchResults = (searchPayload.results || []).slice(0, 5).map(item => ({
+      title: String(item.title || '').slice(0, 240),
+      url: item.url,
+      content: String(item.content || '').slice(0, 1800),
+    }));
+    if (!searchResults.length) return res.status(404).json({ error: 'No useful web results found. Try a more specific product search.' });
+
+    const budgetLine = req.body?.budget !== undefined ? 'Maximum budget: INR ' + budget + '.' : 'No budget was supplied.';
+    const prompt = [
+      'You are PayPilot AI, a careful shopping research assistant for users in India.',
+      'Use ONLY the supplied search results as evidence. Do not invent products, prices, merchants, ratings, availability, discounts or URLs.',
+      budgetLine,
+      'If a price or merchant is not clearly present in the sources, return null and mark the option unverified.',
+      'Do not initiate checkout, request payment credentials, or claim that a payment has happened.',
+      'Return only a JSON object with this shape:',
+      '{"summary":"string","criteria":[{"label":"string","importance":"must-have or nice-to-have"}],"options":[{"product":"string","merchant":"string or null","price":"string or null","reason":"string","verification":"verified or unverified"}],"questions":["string"],"safetyNote":"string"}',
+      'Search results: ' + JSON.stringify(searchResults),
+      'User request: ' + query,
+    ].join('\n');
+
+    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + OPENROUTER_API_KEY,
+        'Content-Type': 'application/json',
+        'X-Title': 'PayPilot AI',
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || 'openrouter/free',
+        messages: [
+          { role: 'system', content: 'You produce cautious, evidence-based shopping research. Never fabricate commercial facts.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 1400,
       }),
       signal: AbortSignal.timeout(30000),
     });
-    const payload = await response.json();
-    if (!response.ok) return res.status(502).json({ error: 'AI provider request failed.', providerStatus: response.status });
-    const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
-    if (!text) return res.status(502).json({ error: 'AI provider returned an empty response.' });
+    const aiPayload = await aiResponse.json();
+    if (!aiResponse.ok) {
+      console.error('OpenRouter request failed:', aiPayload);
+      const status = aiResponse.status === 429 ? 429 : 502;
+      return res.status(status).json({ error: aiResponse.status === 429 ? 'The free AI model is rate-limited. Try again later.' : 'Free AI model request failed. Check the OpenRouter key and selected free model.' });
+    }
+
+    const raw = aiPayload.choices?.[0]?.message?.content;
+    if (typeof raw !== 'string' || !raw.trim()) return res.status(502).json({ error: 'The AI model returned an empty response. Please retry.' });
     let result;
-    try { result = JSON.parse(text); }
-    catch { return res.status(502).json({ error: 'AI provider returned an unreadable response.' }); }
-    const sources = (payload.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
-      .map(chunk => chunk.web)
+    try { result = extractJson(raw); }
+    catch { return res.status(502).json({ error: 'The AI model returned an unreadable result. Please retry.' }); }
+
+    const safeSources = searchResults
       .filter(source => {
-        if (!source?.uri) return false;
-        try { return new URL(source.uri).protocol === 'https:'; } catch { return false; }
+        try { return new URL(source.url).protocol === 'https:'; } catch { return false; }
       })
-      .map(source => ({ title: source.title || source.uri, url: source.uri }));
-    return res.json({ result, sources, provider: 'Gemini', note: 'Search-grounded research only. Verify merchant details before checkout.' });
+      .map(({ title, url }) => ({ title: title || url, url }));
+
+    return res.json({
+      result,
+      sources: safeSources,
+      provider: 'OpenRouter (free model) + Tavily Search',
+      note: 'Free-tier research. Confirm price, stock and seller details on the merchant website before purchasing.',
+    });
   } catch (error) {
-    console.error('AI shopping request failed:', error.message);
-    return res.status(502).json({ error: 'AI shopping is temporarily unavailable.' });
+    console.error('AI shopping research failed:', error.message);
+    return res.status(502).json({ error: 'AI shopping research is temporarily unavailable. Please retry.' });
   }
 });
 
