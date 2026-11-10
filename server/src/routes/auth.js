@@ -39,4 +39,24 @@ router.get('/me', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.patch('/me', requireAuth, async (req, res, next) => {
+  try {
+    const updates = {};
+    if (typeof req.body?.name === 'string' && req.body.name.trim().length >= 2) updates.name = req.body.name.trim();
+    if (req.body?.monthlyBudget !== undefined) {
+      const monthlyBudget = Number(req.body.monthlyBudget);
+      if (!Number.isFinite(monthlyBudget) || monthlyBudget <= 0) return res.status(400).json({ error: 'Monthly budget must be a positive number.' });
+      updates.monthlyBudget = monthlyBudget;
+    }
+    if (typeof req.body?.email === 'string') {
+      const email = req.body.email.trim().toLowerCase();
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+      updates.email = email;
+    }
+    const user = await User.findByIdAndUpdate(req.userId, { $set: updates }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+    return res.json({ user: publicUser(user) });
+  } catch (error) { return next(error); }
+});
+
 export default router;
