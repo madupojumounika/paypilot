@@ -91,4 +91,19 @@ router.patch('/me', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.patch('/password', requireAuth, async (req, res, next) => {
+  try {
+    const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+    const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
+    if (newPassword.length < 8) return res.status(400).json({ error: 'New password must contain at least 8 characters.' });
+    const user = await User.findById(req.userId).select('+passwordHash');
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+    if (!user.passwordHash) return res.status(400).json({ error: 'This account uses Google sign-in and does not have a PayPilot password.' });
+    if (!currentPassword || !(await bcrypt.compare(currentPassword, user.passwordHash))) return res.status(401).json({ error: 'Current password is incorrect.' });
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await user.save();
+    return res.json({ message: 'Password updated successfully.' });
+  } catch (error) { return next(error); }
+});
+
 export default router;
