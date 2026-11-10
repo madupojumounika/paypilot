@@ -15,16 +15,20 @@ PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit u
 ## What's in this repository
 
 ### Frontend
-- React + TypeScript + Vite dashboard.
+- Public marketing website with product overview, features, and clear sign-in / get-started paths.
+- Guest AI shopping page that can be used without creating an account.
+- React + TypeScript + Vite account dashboard, shown after sign-in or registration.
 - Overview, AI Shopping catalogue, Approvals, Activity, Spending Rules, Integrations and Settings screens.
 - Responsive layout and light/dark themes.
 - Search/filter controls, approval review modal, product comparison and rule creation.
-- Optional API sign-in from Settings and AI shopping research using OpenRouter free models plus Tavily search.
+- Email/password account registration and sign-in, plus Google Identity Services sign-in when OAuth is configured.
+- Guest AI shopping research using OpenRouter free models plus Tavily search; sign-in is not required for research.
 - Workspace preferences and demo actions persist in browser local storage.
 
 ### API foundation
 - Express API with MongoDB/Mongoose models.
-- Account registration and login using bcrypt password hashing and signed JWTs.
+- Account registration and email/password login using bcrypt password hashing and signed JWTs.
+- Google ID-token verification against the configured Google OAuth client ID; Google-verified email addresses are stored as passwordless accounts.
 - Authenticated spending-rule, approval and transaction endpoints.
 - Approval requests are checked against enabled spending rules and the user's monthly budget.
 - OpenRouter-powered AI shopping research with Tavily web search. Both keys stay on the server; the AI receives search results and returns source links.
@@ -63,26 +67,42 @@ Requirements: Node.js 20+ and MongoDB (Atlas or a local replica-set deployment).
 
 The frontend runs on Vite's local URL (normally `http://localhost:5173`) and the API listens on `http://localhost:4000`. `VITE_API_URL` controls the frontend's API target.
 
+
+## Google sign-in setup
+
+Google sign-in is implemented with Google Identity Services and verified on the API. To enable it:
+
+1. In Google Cloud Console, create/select a project and configure the OAuth consent screen.
+2. Create an OAuth 2.0 Client ID with application type **Web application**.
+3. Add your local and production frontend origins under **Authorized JavaScript origins** (for example, `http://localhost:5173` and your deployed website origin).
+4. Set the same client ID in both places:
+   - Frontend environment: `VITE_GOOGLE_CLIENT_ID`
+   - Backend environment: `GOOGLE_CLIENT_ID`
+5. Restart/redeploy the frontend and API.
+
+The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The API verifies the Google ID token and checks the verified email claim and audience before creating a session. Do not put client secrets in frontend variables; this flow uses a public web client ID only.
+
 ## API routes
 
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | API health and integration safety status |
 | POST | `/api/auth/register` | Create an account |
-| POST | `/api/auth/login` | Sign in |
+| POST | `/api/auth/login` | Email/password sign in |
+| POST | `/api/auth/google` | Verify Google identity token and sign in |
 | GET / PATCH | `/api/auth/me` | Get or update the signed-in profile and monthly budget |
 | GET / POST | `/api/rules` | List or create spending rules |
 | PATCH / DELETE | `/api/rules/:id` | Update or remove an owned rule |
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
 | PATCH | `/api/approvals/:id` | Approve or decline a pending request |
 | GET | `/api/transactions` | List the signed-in user's activity |
-| POST | `/api/assistant/plan` | Run AI shopping research (OpenRouter + Tavily keys required) |
+| POST | `/api/assistant/plan` | Run guest-accessible AI shopping research (OpenRouter + Tavily keys required) |
 
-Protected routes require `Authorization: Bearer <token>`.
+Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
 
 ## Important integration status
 
-This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Free AI research can be enabled by setting `OPENROUTER_API_KEY`, `OPENROUTER_MODEL=openrouter/free`, and `TAVILY_API_KEY` on the server. OpenRouter free models and Tavily free credits are rate/usage limited; check their current terms. The dashboard can call the authenticated research endpoint after API sign-in. PayPal environment variables are placeholders only. No real payment is possible in the current implementation.
+This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Free AI research can be enabled by setting `OPENROUTER_API_KEY`, `OPENROUTER_MODEL=openrouter/free`, and `TAVILY_API_KEY` on the server. OpenRouter free models and Tavily free credits are rate/usage limited; check their current terms. Guest and signed-in users can call the public research endpoint. PayPal environment variables are placeholders only. No real payment is possible in the current implementation.
 
 Before enabling real integrations, the frontend must be connected to authenticated API endpoints, live product data must come from trusted merchant/provider sources, and PayPal sandbox checkout must be implemented and tested with explicit user confirmation before any capture endpoint can be called. Never commit secrets or production credentials.
 
