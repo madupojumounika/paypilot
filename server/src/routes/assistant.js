@@ -143,7 +143,7 @@ async function fillMissingProductImages(products) {
         if (!image.url) return false;
         try {
           const parsed = new URL(image.url);
-          return parsed.protocol === 'https:' && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
+          return parsed.protocol === 'https:' && parsed.href !== product.url && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
         } catch { return false; }
       });
       const titleWords = product.title.toLowerCase().split(/\W+/).filter(word => word.length > 3);
@@ -197,7 +197,11 @@ async function enrichShoppingPages(searchResults) {
       const resolvedDescription = structured?.description || description;
       if (resolvedTitle) product.title = decodeHtml(resolvedTitle.replace(/<[^>]+>/g, '')).slice(0, 220);
       if (resolvedImage) {
-        try { const imageUrl = new URL(resolvedImage, item.url); if (imageUrl.protocol === 'https:') product.image = imageUrl.href; } catch {}
+        try {
+          const imageUrl = new URL(resolvedImage, item.url);
+          const productUrl = new URL(item.url);
+          if (imageUrl.protocol === 'https:' && imageUrl.href !== productUrl.href) product.image = imageUrl.href;
+        } catch {}
       }
       if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
       const numericPrice = String(price ?? '').replace(/[^\d.]/g, '');
