@@ -70,7 +70,7 @@ The frontend runs on Vite's local URL (normally `http://localhost:5173`) and the
 | GET | `/api/health` | API health and integration safety status |
 | POST | `/api/auth/register` | Create an account |
 | POST | `/api/auth/login` | Sign in |
-| GET | `/api/auth/me` | Get the signed-in profile |
+| GET / PATCH | `/api/auth/me` | Get or update the signed-in profile and monthly budget |
 | GET / POST | `/api/rules` | List or create spending rules |
 | PATCH / DELETE | `/api/rules/:id` | Update or remove an owned rule |
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
