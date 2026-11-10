@@ -25,19 +25,6 @@ const nav = [
   { label:'Settings' as Page, icon:Settings, group:'PREFERENCES' },
 ];
 const chart = [{day:'Mon',amount:240},{day:'Tue',amount:390},{day:'Wed',amount:310},{day:'Thu',amount:520},{day:'Fri',amount:430},{day:'Sat',amount:680},{day:'Sun',amount:560}];
-const initialTx:Tx[] = [
-  {id:1,name:'Notion',detail:'Software subscription',amount:800,date:'Today, 10:42 AM',status:'Completed',initials:'N',tone:'violet',category:'Software'},
-  {id:2,name:'Amazon',detail:'Electronics & accessories',amount:2499,date:'Yesterday',status:'Completed',initials:'a',tone:'amber',category:'Shopping'},
-  {id:3,name:'Figma',detail:'Professional plan',amount:1200,date:'Nov 08, 2026',status:'Pending',initials:'F',tone:'rose',category:'Software'},
-  {id:4,name:'Swiggy',detail:'Food & dining',amount:460,date:'Nov 07, 2026',status:'Completed',initials:'S',tone:'orange',category:'Food'},
-  {id:5,name:'Uber',detail:'Travel',amount:325,date:'Nov 06, 2026',status:'Declined',initials:'U',tone:'slate',category:'Travel'},
-];
-const initialRules:Rule[] = [
-  {id:1,name:'Daily spending cap',description:'Maximum spend allowed per day',category:'all',limit:5000,spent:1840,enabled:true},
-  {id:2,name:'Online shopping',description:'Purchases from online stores',category:'Electronics',limit:10000,spent:6240,enabled:true},
-  {id:3,name:'Software subscriptions',description:'Recurring software and SaaS tools',category:'Software',limit:3000,spent:2000,enabled:true},
-  {id:4,name:'Travel & transport',description:'Rides, flights and accommodation',category:'Travel',limit:4000,spent:325,enabled:false},
-];
 const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
 const products = [
@@ -45,10 +32,6 @@ const products = [
   {id:2,name:'Logitech MX Master 3S',category:'Electronics',price:8495,old:10995,rating:'4.7',merchant:'Flipkart',tag:'Top rated',saving:2500,icon:'🖱️',keywords:'mouse ergonomic productivity computer'},
   {id:3,name:'Kindle Paperwhite',category:'Books & learning',price:13999,old:15999,rating:'4.6',merchant:'Amazon',tag:'Popular',saving:2000,icon:'📖',keywords:'ebook reader kindle books reading'},
   {id:4,name:'OnePlus Nord Buds 3',category:'Electronics',price:2299,old:2799,rating:'4.3',merchant:'Amazon',tag:'Budget pick',saving:500,icon:'🎧',keywords:'wireless headphones earbuds audio'},
-];
-const approvalRequests = [
-  {id:1,name:'Figma Professional',detail:'Monthly subscription · Figma, Inc.',amount:1200,kind:'Software',icon:'F',tone:'rose',merchant:'Figma, Inc.'},
-  {id:2,name:'Wireless keyboard',detail:'Logitech MX Keys Mini · Amazon',amount:3499,kind:'Shopping',icon:'L',tone:'amber',merchant:'Amazon'},
 ];
 const App = () => {
   const [page,setPage] = useState<Page>('Overview');
@@ -61,7 +44,7 @@ const App = () => {
   const [requests,setRequests] = useState<any[]>([]);
   const approved = requests.filter(a=>a.status==='approved').map(a=>a.id);
   const denied = requests.filter(a=>a.status==='declined').map(a=>a.id);
-  const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:string}|null>(null);
+  const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:string|number}|null>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
   const [connected] = useState<string[]>([]);
@@ -278,7 +261,7 @@ const App = () => {
       </div>
     </main>
     {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><div className="approval-modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" onClick={()=>setModal(null)}><X size={18}/></button>
-      {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{activeApproval?.name || 'Purchase request'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(activeApproval?.amount || 0)}</div><div className="modal-detail"><span>Merchant</span><strong>{activeApproval?.merchant || 'Merchant'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>PayPal · Demo connection</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15}/> Simulated request only. No payment will be sent.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>void decline(modal.id||'')}>Decline</button><button className="primary-button" onClick={()=>void approve(modal.id||'')}>Approve request</button></div></>}
+      {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{activeApproval?.name || 'Purchase request'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(activeApproval?.amount || 0)}</div><div className="modal-detail"><span>Merchant</span><strong>{activeApproval?.merchant || 'Merchant'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>PayPal · Demo connection</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15}/> Simulated request only. No payment will be sent.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>void decline(String(modal.id||''))}>Decline</button><button className="primary-button" onClick={()=>void approve(String(modal.id||''))}>Approve request</button></div></>}
       {modal.type==='product'&&<><div className="eyebrow">PRODUCT COMPARISON</div><div className="product-modal-visual">{currentProduct.icon}</div><h2>{currentProduct.name}</h2><p className="modal-subtitle">A demo listing selected from your shopping search.</p><div className="approval-amount">{money(currentProduct.price)}</div><div className="modal-detail"><span>Merchant</span><strong>{currentProduct.merchant}</strong></div><div className="modal-detail"><span>Rating</span><strong>★ {currentProduct.rating}/5</strong></div><div className="modal-detail"><span>Price difference</span><strong className="status-on">Save {money(currentProduct.saving)}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> No purchase is made. Add to saved items to compare later.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>toggleSaved(currentProduct.id)}>{savedProducts.includes(currentProduct.id)?'Remove saved':'Save item'}</button><button className="primary-button" onClick={requestProductApproval}>Request approval</button></div></>}
       {modal.type==='rule'&&<><div className="modal-icon"><SlidersHorizontal size={22}/></div><div className="eyebrow">CUSTOM PERMISSION</div><h2>Create a spending rule</h2><p className="modal-subtitle">Define a boundary for your AI shopping assistant.</p><label className="field-label">Rule name<input value={newRule.name} onChange={e=>setNewRule(v=>({...v,name:e.target.value}))} placeholder="e.g. Electronics purchases"/></label><label className="field-label">Description<input value={newRule.description} onChange={e=>setNewRule(v=>({...v,description:e.target.value}))} placeholder="What does this rule cover?"/></label><label className="field-label">Category<select value={newRule.category} onChange={e=>setNewRule(v=>({...v,category:e.target.value}))}><option value="all">All purchases</option><option value="Electronics">Electronics</option><option value="Software">Software</option><option value="Books & learning">Books & learning</option><option value="Travel">Travel</option></select></label><label className="field-label">Spending limit (INR)<input type="number" value={newRule.limit} onChange={e=>setNewRule(v=>({...v,limit:e.target.value}))}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" onClick={()=>void addRule()}>Create rule</button></div></>}
     </div></div>}
