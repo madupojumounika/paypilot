@@ -346,7 +346,7 @@ router.post('/plan', async (req, res) => {
       usedFallback = true;
     }
     const products = await enrichShoppingPages(searchResults);
-    const productsWithImages = await fillMissingProductImages(products);
+    const productsWithImages = (await fillMissingProductImages(products)).filter(product => Boolean(product.image));
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
