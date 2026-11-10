@@ -46,7 +46,7 @@ const App = () => {
   const [mobileOpen,setMobileOpen] = useState(false);
   const [notice,setNotice] = useState('');
   const [query,setQuery] = useState('');
-  const [tx,setTx] = useState(initialTx);
+  const [tx] = useState(initialTx);
   const [rules,setRules] = useState(initialRules);
   const [approved,setApproved] = useState<number[]>([]);
   const [denied,setDenied] = useState<number[]>([]);
