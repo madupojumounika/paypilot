@@ -18,7 +18,7 @@ router.post('/plan', async (req, res) => {
     'Research the request using Google Search grounding. ' + budgetLine,
     'Do not invent product names, merchants, ratings, stock, discounts, URLs, or prices.',
     'Only describe current facts that are supported by the search results. If you cannot verify a fact, say it is unverified.',
-    'Do not initiate checkout, collect payment details, or recommend bypassing a user's spending rules.',
+    'Do not initiate checkout, collect payment details, or recommend bypassing the user spending rules.',
     'Return valid JSON with this shape: {"summary":string,"criteria":[{"label":string,"importance":"must-have"|"nice-to-have"}],"options":[{"product":string,"merchant":string|null,"price":string|null,"reason":string,"verification":"verified"|"unverified"}],"questions":[string],"safetyNote":string}.',
     'For each option, use only a price and merchant that are explicitly supported by a search result. If unavailable, set them to null and mark verification unverified.',
     'User request: ' + query,
