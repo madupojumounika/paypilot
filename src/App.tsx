@@ -1,156 +1,109 @@
 import { useMemo, useState } from 'react';
 import {
-  Activity, ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, CircleHelp,
-  CreditCard, LayoutDashboard, LifeBuoy, LockKeyhole, Menu, Moon,
-  Search, Settings, ShieldCheck, ShoppingBag, SlidersHorizontal,
-  Sparkles, Sun, Wallet, X, Check, Clock3, MoreHorizontal
+  Activity, ArrowDownLeft, ArrowUpRight, Bell, Check, ChevronDown, CircleHelp,
+  CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
+  ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
+  Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw, Filter, Trash2,
+  CircleDollarSign, ReceiptText, Link2, ChevronRight, Command, LogOut
 } from 'lucide-react';
-import {
-  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis
-} from 'recharts';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 type Page = 'Overview' | 'AI Shopping' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
-
-const navigation: { label: Page; icon: typeof LayoutDashboard; section: string }[] = [
-  { label: 'Overview', icon: LayoutDashboard, section: 'WORKSPACE' },
-  { label: 'AI Shopping', icon: ShoppingBag, section: 'WORKSPACE' },
-  { label: 'Approvals', icon: ShieldCheck, section: 'WORKSPACE' },
-  { label: 'Activity', icon: Activity, section: 'MANAGE' },
-  { label: 'Spending rules', icon: SlidersHorizontal, section: 'MANAGE' },
-  { label: 'Integrations', icon: CreditCard, section: 'MANAGE' },
-  { label: 'Settings', icon: Settings, section: 'PREFERENCES' },
+type Tx = { id:number; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Declined'; initials:string; tone:string; category:string };
+type Rule = { id:number; name:string; description:string; limit:number; spent:number; enabled:boolean };
+const nav = [
+  { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
+  { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
+  { label:'Approvals' as Page, icon:ShieldCheck, group:'WORKSPACE' },
+  { label:'Activity' as Page, icon:Activity, group:'MANAGE' },
+  { label:'Spending rules' as Page, icon:SlidersHorizontal, group:'MANAGE' },
+  { label:'Integrations' as Page, icon:CreditCard, group:'MANAGE' },
+  { label:'Settings' as Page, icon:Settings, group:'PREFERENCES' },
 ];
-
-const spendData = [
-  { day: 'Mon', amount: 240 }, { day: 'Tue', amount: 390 },
-  { day: 'Wed', amount: 310 }, { day: 'Thu', amount: 520 },
-  { day: 'Fri', amount: 430 }, { day: 'Sat', amount: 680 },
-  { day: 'Sun', amount: 560 },
+const chart = [{day:'Mon',amount:240},{day:'Tue',amount:390},{day:'Wed',amount:310},{day:'Thu',amount:520},{day:'Fri',amount:430},{day:'Sat',amount:680},{day:'Sun',amount:560}];
+const initialTx:Tx[] = [
+  {id:1,name:'Notion',detail:'Software subscription',amount:800,date:'Today, 10:42 AM',status:'Completed',initials:'N',tone:'violet',category:'Software'},
+  {id:2,name:'Amazon',detail:'Electronics & accessories',amount:2499,date:'Yesterday',status:'Completed',initials:'a',tone:'amber',category:'Shopping'},
+  {id:3,name:'Figma',detail:'Professional plan',amount:1200,date:'Nov 08, 2026',status:'Pending',initials:'F',tone:'rose',category:'Software'},
+  {id:4,name:'Swiggy',detail:'Food & dining',amount:460,date:'Nov 07, 2026',status:'Completed',initials:'S',tone:'orange',category:'Food'},
+  {id:5,name:'Uber',detail:'Travel',amount:325,date:'Nov 06, 2026',status:'Declined',initials:'U',tone:'slate',category:'Travel'},
 ];
-
-const transactions = [
-  { name: 'Notion', detail: 'Software · Today, 10:42 AM', amount: '₹800.00', status: 'Completed', initials: 'N', tone: 'violet' },
-  { name: 'Amazon', detail: 'Shopping · Yesterday', amount: '₹2,499.00', status: 'Completed', initials: 'a', tone: 'amber' },
-  { name: 'Figma', detail: 'Software · Nov 08, 2026', amount: '₹1,200.00', status: 'Pending', initials: 'F', tone: 'rose' },
+const initialRules:Rule[] = [
+  {id:1,name:'Daily spending cap',description:'Maximum spend allowed per day',limit:5000,spent:1840,enabled:true},
+  {id:2,name:'Online shopping',description:'Purchases from online stores',limit:10000,spent:6240,enabled:true},
+  {id:3,name:'Software subscriptions',description:'Recurring software and SaaS tools',limit:3000,spent:2000,enabled:true},
+  {id:4,name:'Travel & transport',description:'Rides, flights and accommodation',limit:4000,spent:325,enabled:false},
 ];
-
-function App() {
-  const [page, setPage] = useState<Page>('Overview');
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [dark, setDark] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [showApproval, setShowApproval] = useState(false);
-  const [approved, setApproved] = useState(false);
-  const [search, setSearch] = useState('');
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  }, []);
-
-  const showNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(''), 2800);
-  };
-
-  const handleNav = (label: Page) => {
-    setPage(label);
-    setMobileOpen(false);
-  };
-
-  return (
-    <div className={dark ? 'app-shell dark' : 'app-shell'}>
-      {mobileOpen && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
-      <aside className={mobileOpen ? 'sidebar sidebar-open' : 'sidebar'}>
-        <div className="brand">
-          <div className="brand-mark"><span>p</span></div>
-          <span className="brand-name">paypilot<span className="brand-ai">AI</span></span>
-          <button className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18} /></button>
-        </div>
-        <div className="workspace-switch">
-          <div className="workspace-avatar">M</div>
-          <div className="workspace-copy"><strong>My workspace</strong><span>Personal account</span></div>
-          <ChevronDown size={15} className="muted-icon" />
-        </div>
-        <nav className="side-nav">
-          {(['WORKSPACE', 'MANAGE', 'PREFERENCES'] as const).map(section => (
-            <div className="nav-group" key={section}>
-              <p className="nav-heading">{section}</p>
-              {navigation.filter(item => item.section === section).map(item => {
-                const Icon = item.icon;
-                return <button key={item.label} className={page === item.label ? 'nav-item active' : 'nav-item'} onClick={() => handleNav(item.label)}>
-                  <Icon size={17} strokeWidth={1.8} /><span>{item.label}</span>
-                  {item.label === 'Approvals' && <span className="nav-count">2</span>}
-                </button>;
-              })}
-            </div>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="security-note"><div className="security-icon"><LockKeyhole size={15} /></div><div><strong>Your money, your rules.</strong><span>Payments always need your OK.</span></div></div>
-          <button className="nav-item help-link" onClick={() => showNotice('Help center is coming soon.')}><CircleHelp size={17} /><span>Help center</span><LifeBuoy size={15} className="help-trailing" /></button>
-          <div className="profile-row"><div className="profile-avatar">MM</div><div className="profile-copy"><strong>Mounika Madupoju</strong><span>Free plan</span></div><MoreHorizontal size={18} className="muted-icon" /></div>
-        </div>
-      </aside>
-
-      <main className="main-area">
-        <header className="topbar">
-          <div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20} /></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div>
-          <div className="topbar-actions">
-            <label className="search-box"><Search size={16} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search anything..." /></label>
-            <button className="icon-button theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
-            <button className="icon-button notification-button" onClick={() => showNotice('You’re all caught up.')} aria-label="Notifications"><Bell size={18} /><i /></button>
-            <div className="top-avatar">MM</div>
-          </div>
-        </header>
-
-        <div className="page-content">
-          {page === 'Overview' ? <>
-            <div className="page-heading">
-              <div><div className="eyebrow">{greeting.toUpperCase()}</div><h1>Your finances, in focus.</h1><p>Here’s what’s happening with your money today.</p></div>
-              <button className="primary-button" onClick={() => setPage('AI Shopping')}><Sparkles size={16} /> Explore AI shopping</button>
-            </div>
-
-            <section className="metric-grid">
-              <article className="metric-card"><div className="metric-top"><span>Total spending</span><span className="metric-icon blue"><Wallet size={17} /></span></div><div className="metric-value">₹24,680<span className="metric-period">.00</span></div><div className="metric-foot"><span className="trend positive"><ArrowDownLeft size={13} /> 8.2%</span><span>vs. last month</span></div></article>
-              <article className="metric-card"><div className="metric-top"><span>Available budget</span><span className="metric-icon green"><ShieldCheck size={17} /></span></div><div className="metric-value">₹15,320<span className="metric-period">.00</span></div><div className="metric-foot"><span className="budget-label">61.7% used</span><span>of ₹40,000</span></div><div className="progress-track"><span style={{ width: '61.7%' }} /></div></article>
-              <article className="metric-card"><div className="metric-top"><span>Pending approvals</span><span className="metric-icon orange"><Clock3 size={17} /></span></div><div className="metric-value">02</div><div className="metric-foot"><span className="pending-label">Needs your attention</span><button className="text-action" onClick={() => setPage('Approvals')}>Review <ArrowUpRight size={13} /></button></div></article>
-              <article className="metric-card"><div className="metric-top"><span>Saved with AI</span><span className="metric-icon violet"><Sparkles size={17} /></span></div><div className="metric-value">₹3,450<span className="metric-period">.00</span></div><div className="metric-foot"><span className="trend positive"><ArrowUpRight size={13} /> 12.4%</span><span>this month</span></div></article>
-            </section>
-
-            <section className="content-grid">
-              <article className="panel spending-panel">
-                <div className="panel-heading"><div><h2>Spending overview</h2><p>Your spending activity this week</p></div><button className="select-button" onClick={() => showNotice('Showing this week’s demo data.')}>This week <ChevronDown size={14} /></button></div>
-                <div className="chart-legend"><span className="legend-dot" /> Total spending <strong>₹3,130.00</strong></div>
-                <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={spendData} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}><defs><linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3978ee" stopOpacity={0.18} /><stop offset="100%" stopColor="#3978ee" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--chart-grid)" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} dy={10} /><YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={v => '₹' + v} /><Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }} formatter={(value) => ['₹' + value, 'Spent']} /><Area type="monotone" dataKey="amount" stroke="#3978ee" strokeWidth={2.5} fill="url(#spendFill)" /></AreaChart></ResponsiveContainer></div>
-              </article>
-
-              <article className="panel permission-panel">
-                <div className="panel-heading"><div><h2>Permission center</h2><p>Your AI boundaries at a glance</p></div><span className="live-pill"><i /> ACTIVE</span></div>
-                <div className="permission-hero"><div className="permission-shield"><ShieldCheck size={22} /></div><div><strong>You're in control</strong><span>PayPilot follows your rules.</span></div></div>
-                <div className="permission-row"><span>Daily spending limit</span><strong>₹5,000</strong></div>
-                <div className="permission-row"><span>Auto-purchase</span><span className="status-off">Disabled</span></div>
-                <div className="permission-row"><span>Human approval</span><span className="status-on"><Check size={13} /> Required</span></div>
-                <button className="secondary-button full-button" onClick={() => setPage('Spending rules')}>Manage spending rules <ArrowUpRight size={14} /></button>
-              </article>
-            </section>
-
-            <section className="panel transactions-panel">
-              <div className="panel-heading"><div><h2>Recent activity</h2><p>A look at your latest transactions</p></div><button className="text-action view-all" onClick={() => setPage('Activity')}>View all activity <ArrowUpRight size={14} /></button></div>
-              <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>AMOUNT</span><span>STATUS</span><span /></div>
-                {transactions.filter(t => (t.name + t.detail).toLowerCase().includes(search.toLowerCase())).map(t => <div className="transaction-row" key={t.name}><div className="merchant-cell"><div className={'merchant-logo ' + t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><strong className="amount-cell">− {t.amount}</strong><span className={t.status === 'Pending' ? 'status-badge pending' : 'status-badge complete'}><i />{t.status}</span><button className="row-more" onClick={() => showNotice(t.name + ' transaction details are in demo mode.')} aria-label={'More about ' + t.name}><MoreHorizontal size={18} /></button></div>)}
-                {transactions.filter(t => (t.name + t.detail).toLowerCase().includes(search.toLowerCase())).length === 0 && <div className="empty-search">No matching activity found.</div>}
-              </div>
-            </section>
-            <div className="demo-footnote"><ShieldCheck size={14} /> Demo workspace · No real payments are being made.</div>
-          </> : <section className="panel placeholder-panel"><div className="placeholder-icon"><Sparkles size={23} /></div><div className="eyebrow">PAYPILOT WORKSPACE</div><h1>{page}</h1><p>This section is part of the product roadmap. The interface and interactions are being built step by step.</p>{page === 'Approvals' && <div className="approval-preview"><div><div className="merchant-logo rose">F</div><span><strong>Figma Professional</strong><small>₹1,200 · Monthly subscription</small></span><span className="status-badge pending"><i /> Awaiting approval</span><button className="secondary-button" onClick={() => setShowApproval(true)}>Review request</button></div><div><div className="merchant-logo amber">a</div><span><strong>Amazon · Wireless keyboard</strong><small>₹2,499 · Shopping</small></span><span className="status-badge pending"><i /> Awaiting approval</span><button className="secondary-button" onClick={() => setShowApproval(true)}>Review request</button></div></div>}{page !== 'Approvals' && <button className="primary-button" onClick={() => setPage('Overview')}>Back to overview</button>}</section>}
-        </div>
-      </main>
-
-      {showApproval && <div className="modal-backdrop" onClick={() => setShowApproval(false)}><div className="approval-modal" onClick={e => e.stopPropagation()}><button className="modal-close icon-button" onClick={() => setShowApproval(false)}><X size={18} /></button><div className="modal-icon"><ShieldCheck size={22} /></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>Figma Professional</h2><p className="modal-subtitle">PayPilot is asking for your approval before proceeding.</p><div className="approval-amount">₹1,200.00</div><div className="modal-detail"><span>Merchant</span><strong>Figma, Inc.</strong></div><div className="modal-detail"><span>Payment method</span><strong>Demo wallet · •••• 4242</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13} /> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15} /> This is a simulated approval. No payment will be sent.</div>{approved ? <div className="approved-message"><Check size={16} /> Demo request approved</div> : <div className="modal-actions"><button className="secondary-button" onClick={() => { setShowApproval(false); showNotice('Request declined in demo mode.'); }}>Decline</button><button className="primary-button" onClick={() => setApproved(true)}>Approve demo request</button></div>}</div></div>}
-      {notice && <div className="toast"><Check size={16} />{notice}</div>}
-    </div>
-  );
-}
-
+const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const products = [
+  {id:1,name:'Sony WH-CH720N',category:'Electronics',price:7490,old:9990,rating:'4.4',merchant:'Amazon',tag:'Best value',saving:2500,icon:'🎧'},
+  {id:2,name:'Logitech MX Master 3S',category:'Electronics',price:8495,old:10995,rating:'4.7',merchant:'Flipkart',tag:'Top rated',saving:2500,icon:'🖱️'},
+  {id:3,name:'Kindle Paperwhite',category:'Books & learning',price:13999,old:15999,rating:'4.6',merchant:'Amazon',tag:'Popular',saving:2000,icon:'📖'},
+];
+const App = () => {
+  const [page,setPage] = useState<Page>('Overview');
+  const [dark,setDark] = useState(false);
+  const [mobileOpen,setMobileOpen] = useState(false);
+  const [notice,setNotice] = useState('');
+  const [query,setQuery] = useState('');
+  const [tx,setTx] = useState(initialTx);
+  const [rules,setRules] = useState(initialRules);
+  const [approved,setApproved] = useState<number[]>([]);
+  const [denied,setDenied] = useState<number[]>([]);
+  const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:number}|null>(null);
+  const [newRule,setNewRule] = useState({name:'',limit:'5000',description:''});
+  const [filter,setFilter] = useState('All');
+  const [connected,setConnected] = useState<string[]>(['PayPal']);
+  const [budget,setBudget] = useState('40000');
+  const [name,setName] = useState('Mounika Madupoju');
+  const [email,setEmail] = useState('mounika@example.com');
+  const [productSearch,setProductSearch] = useState('wireless headphones');
+  const [productCategory,setProductCategory] = useState('All');
+  const [selectedProduct,setSelectedProduct] = useState(1);
+  const [savedProducts,setSavedProducts] = useState<number[]>([]);
+  const [range,setRange] = useState('This week');
+  const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
+  const go = (p:Page) => {setPage(p);setMobileOpen(false);};
+  const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
+  const currentProduct = products.find(p=>p.id===selectedProduct) || products[0];
+  const pendingCount = Math.max(0,2-approved.length-denied.length);
+  const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
+  const approve = (id:number) => {setApproved(v=>[...v,id]);setModal(null);notify('Demo request approved. No payment was sent.');};
+  const decline = (id:number) => {setDenied(v=>[...v,id]);setModal(null);notify('Request declined in demo mode.');};
+  const toggleRule = (id:number) => setRules(v=>v.map(r=>r.id===id?{...r,enabled:!r.enabled}:r));
+  const addRule = () => {if(!newRule.name.trim())return;setRules(v=>[...v,{id:Date.now(),name:newRule.name,description:newRule.description||'Custom spending boundary',limit:Number(newRule.limit)||0,spent:0,enabled:true}]);setNewRule({name:'',limit:'5000',description:''});setModal(null);notify('Spending rule created.');};
+  const toggleSaved = (id:number) => setSavedProducts(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
+  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{t.date}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
+  return <div className={dark?'app-shell dark':'app-shell'}>
+    {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
+    <aside className={mobileOpen?'sidebar sidebar-open':'sidebar'}>
+      <div className="brand"><div className="brand-mark"><span>p</span></div><span className="brand-name">paypilot<span className="brand-ai">AI</span></span><button className="icon-button sidebar-close" onClick={()=>setMobileOpen(false)}><X size={18}/></button></div>
+      <button className="workspace-switch" onClick={()=>notify('Personal workspace selected.')}><div className="workspace-avatar">M</div><div className="workspace-copy"><strong>Personal workspace</strong><span>Free account</span></div><ChevronDown size={15} className="muted-icon"/></button>
+      <nav className="side-nav">{(['WORKSPACE','MANAGE','PREFERENCES'] as const).map(g=><div className="nav-group" key={g}><p className="nav-heading">{g}</p>{nav.filter(n=>n.group===g).map(n=>{const Icon=n.icon;return <button key={n.label} className={page===n.label?'nav-item active':'nav-item'} onClick={()=>go(n.label)}><Icon size={17}/><span>{n.label}</span>{n.label==='Approvals'&&pendingCount>0&&<span className="nav-count">{pendingCount}</span>}</button>})}</div>)}</nav>
+      <div className="sidebar-bottom"><div className="security-note"><div className="security-icon"><LockKeyhole size={15}/></div><div><strong>Your money, your rules.</strong><span>AI never pays without approval.</span></div></div><button className="nav-item help-link" onClick={()=>notify('Help center is coming soon.')}><CircleHelp size={17}/><span>Help center</span></button><div className="profile-row"><div className="profile-avatar">MM</div><div className="profile-copy"><strong>{name}</strong><span>Personal account</span></div><button className="icon-button" onClick={()=>go('Settings')}><MoreHorizontal size={18}/></button></div></div>
+    </aside>
+    <main className="main-area">
+      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="topbar-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search transactions..."/></label><button className="icon-button theme-toggle" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button notification-button" onClick={()=>notify('You are all caught up.')} aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">MM</div></div></header>
+      <div className="page-content">
+      {page==='Overview'&&<><div className="page-heading"><div><div className="eyebrow">{greeting.toUpperCase()}</div><h1>Your finances, in focus.</h1><p>Here’s what’s happening with your money today.</p></div><button className="primary-button" onClick={()=>go('AI Shopping')}><Sparkles size={16}/> Explore AI shopping</button></div>
+        <section className="metric-grid"><article className="metric-card"><div className="metric-top"><span>Total spending</span><span className="metric-icon blue"><Wallet size={17}/></span></div><div className="metric-value">₹24,680<span className="metric-period">.00</span></div><div className="metric-foot"><span className="trend positive"><ArrowDownLeft size={13}/> 8.2%</span><span>vs. last month</span></div></article><article className="metric-card"><div className="metric-top"><span>Available budget</span><span className="metric-icon green"><ShieldCheck size={17}/></span></div><div className="metric-value">₹15,320<span className="metric-period">.00</span></div><div className="metric-foot"><span className="budget-label">61.7% used</span><span>of ₹40,000</span></div><div className="progress-track"><span style={{width:'61.7%'}}/></div></article><article className="metric-card"><div className="metric-top"><span>Pending approvals</span><span className="metric-icon orange"><Clock3 size={17}/></span></div><div className="metric-value">{String(pendingCount).padStart(2,'0')}</div><div className="metric-foot"><span className="pending-label">Needs your attention</span><button className="text-action" onClick={()=>go('Approvals')}>Review <ArrowUpRight size={13}/></button></div></article><article className="metric-card"><div className="metric-top"><span>Saved with AI</span><span className="metric-icon violet"><Sparkles size={17}/></span></div><div className="metric-value">₹3,450<span className="metric-period">.00</span></div><div className="metric-foot"><span className="trend positive"><ArrowUpRight size={13}/> 12.4%</span><span>this month</span></div></article></section>
+        <section className="content-grid"><article className="panel spending-panel"><div className="panel-heading"><div><h2>Spending overview</h2><p>Track your outflow and spending patterns</p></div><select className="select-button" value={range} onChange={e=>setRange(e.target.value)}><option>This week</option><option>This month</option><option>Last 30 days</option></select></div><div className="chart-legend"><span className="legend-dot"/> Total spending <strong>₹3,130.00</strong></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart} margin={{top:8,right:4,left:-20,bottom:0}}><defs><linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3978ee" stopOpacity={.18}/><stop offset="100%" stopColor="#3978ee" stopOpacity={.01}/></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--chart-grid)"/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} dy={10}/><YAxis axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} tickFormatter={v=>'₹'+v}/><Tooltip contentStyle={{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:10,fontSize:12}} formatter={(v)=>['₹'+v,'Spent']}/><Area type="monotone" dataKey="amount" stroke="#3978ee" strokeWidth={2.5} fill="url(#spendFill)"/></AreaChart></ResponsiveContainer></div></article>
+        <article className="panel permission-panel"><div className="panel-heading"><div><h2>Permission center</h2><p>Your AI boundaries at a glance</p></div><span className="live-pill"><i/> ACTIVE</span></div><div className="permission-hero"><div className="permission-shield"><ShieldCheck size={22}/></div><div><strong>You’re in control</strong><span>PayPilot follows your rules.</span></div></div><div className="permission-row"><span>Daily spending limit</span><strong>₹5,000</strong></div><div className="permission-row"><span>Auto-purchase</span><span className="status-off">Disabled</span></div><div className="permission-row"><span>Human approval</span><span className="status-on"><Check size={13}/> Required</span></div><button className="secondary-button full-button" onClick={()=>go('Spending rules')}>Manage spending rules <ArrowUpRight size={14}/></button></article></section>
+        <section className="panel transactions-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>A clear view of your latest transactions</p></div><button className="text-action view-all" onClick={()=>go('Activity')}>View all activity <ArrowUpRight size={14}/></button></div>{transactionRows(tx.slice(0,4))}</section><div className="demo-footnote"><ShieldCheck size={14}/> Demo workspace · No real payments are being made.</div></>}
+      {page==='AI Shopping'&&<><div className="page-heading"><div><div className="eyebrow">SHOPPING ASSISTANT</div><h1>Let AI do the research.</h1><p>Compare options, uncover better prices, and stay within your budget.</p></div><span className="live-pill"><i/> DEMO MODE</span></div><section className="ai-search-panel panel"><div className="ai-orb"><Sparkles size={22}/></div><div className="ai-search-content"><h2>What are you looking for?</h2><p>Tell PayPilot what you need. We’ll help you compare before you buy.</p><div className="ai-input-row"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="e.g. noise cancelling headphones under ₹10,000"/><button className="primary-button" onClick={()=>notify('Demo product matches refreshed.')}><Sparkles size={15}/> Find products</button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop for coding</button><button onClick={()=>setProductSearch('Wireless headphones')}>Wireless headphones</button><button onClick={()=>setProductSearch('Ergonomic keyboard')}>Ergonomic keyboard</button></div></div></section><div className="section-toolbar"><div><h2>Recommended matches</h2><p>Based on your search · Demo catalogue</p></div><select className="select-button" value={productCategory} onChange={e=>setProductCategory(e.target.value)}><option>All</option><option>Electronics</option><option>Books & learning</option></select></div><section className="product-grid">{products.filter(p=>productCategory==='All'||p.category===productCategory).map(p=><article className="product-card" key={p.id}><div className="product-visual"><span className="product-emoji">{p.icon}</span><span className="product-tag">{p.tag}</span><button className={savedProducts.includes(p.id)?'save-product saved':'save-product'} onClick={()=>toggleSaved(p.id)}>{savedProducts.includes(p.id)?'♥':'♡'}</button></div><div className="product-info"><div className="product-merchant">{p.merchant} · {p.category}</div><h3>{p.name}</h3><div className="product-rating">★ {p.rating} <span>· {p.merchant} listing</span></div><div className="product-price">{money(p.price)} <del>{money(p.old)}</del></div><div className="saving-note">You save {money(p.saving)}</div><button className="secondary-button product-compare" onClick={()=>{setSelectedProduct(p.id);setModal({type:'product',id:p.id})}}>Compare & review <ChevronRight size={14}/></button></div></article>)}</section><div className="safety-banner"><ShieldCheck size={18}/><div><strong>You stay in control</strong><span>PayPilot can research and prepare a purchase. Only you can authorize a payment.</span></div></div></>}
+      {page==='Approvals'&&<><div className="page-heading"><div><div className="eyebrow">HUMAN-IN-THE-LOOP PAYMENTS</div><h1>Approvals</h1><p>Review every purchase before money moves.</p></div><span className="live-pill"><i/> {pendingCount} NEEDS REVIEW</span></div><div className="approval-summary"><div className="approval-stat"><span>Waiting for you</span><strong>{pendingCount}</strong></div><div className="approval-stat"><span>Approved this month</span><strong>{approved.length+4}</strong></div><div className="approval-stat"><span>Declined this month</span><strong>{denied.length+1}</strong></div></div><section className="panel approvals-panel"><div className="panel-heading"><div><h2>Purchase requests</h2><p>AI-prepared purchases that need your decision</p></div><span className="status-badge pending"><i/> Action required</span></div>{[{id:1,name:'Figma Professional',detail:'Monthly subscription · Figma, Inc.',amount:1200,kind:'Software',icon:'F',tone:'rose'},{id:2,name:'Wireless keyboard',detail:'Logitech MX Keys Mini · Amazon',amount:3499,kind:'Shopping',icon:'L',tone:'amber'}].filter(a=>!approved.includes(a.id)&&!denied.includes(a.id)).map(a=><div className="approval-item" key={a.id}><div className={'merchant-logo '+a.tone}>{a.icon}</div><div className="approval-item-copy"><strong>{a.name}</strong><span>{a.detail}</span><small>Requested just now · {a.kind}</small></div><div className="approval-item-price">{money(a.amount)}<span>One-time / recurring</span></div><button className="secondary-button" onClick={()=>setModal({type:'approval',id:a.id})}>Review request</button></div>)}{pendingCount===0&&<div className="empty-state"><ShieldCheck size={25}/><strong>All caught up</strong><span>There are no demo requests waiting for approval.</span></div>}</section><div className="safety-banner"><LockKeyhole size={18}/><div><strong>Approval is always yours</strong><span>Approving here only changes this demo workspace. It never triggers a real payment.</span></div></div></>}
+      {page==='Activity'&&<><div className="page-heading"><div><div className="eyebrow">ACCOUNT HISTORY</div><h1>Activity</h1><p>Every transaction, in one place.</p></div><button className="secondary-button" onClick={()=>notify('Your demo activity export is being prepared.')}><ExternalLink size={14}/> Export activity</button></div><section className="panel transactions-panel"><div className="activity-toolbar"><div><h2>All transactions</h2><p>{filteredTx.length} records in this demo account</p></div><div className="filter-controls"><select className="select-button" value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option><option>Completed</option><option>Pending</option><option>Declined</option></select><button className="select-button" onClick={()=>{setQuery('');setFilter('All')}}><RefreshCw size={13}/> Reset</button></div></div>{transactionRows(filteredTx)}</section></>}
+      {page==='Spending rules'&&<><div className="page-heading"><div><div className="eyebrow">YOUR PERMISSION ENGINE</div><h1>Spending rules</h1><p>Set boundaries for what your AI assistant can prepare.</p></div><button className="primary-button" onClick={()=>setModal({type:'rule'})}><Plus size={16}/> Create a rule</button></div><div className="rules-intro panel"><div className="rules-intro-icon"><ShieldCheck size={22}/></div><div><strong>Guardrails before checkout</strong><span>Rules are checked before any purchase request reaches your approval queue. Auto-purchase is off by default.</span></div><span className="live-pill"><i/> PROTECTED</span></div><div className="rules-list">{rules.map(r=><article className="rule-card panel" key={r.id}><div className="rule-main"><div className="rule-icon"><SlidersHorizontal size={18}/></div><div className="rule-copy"><strong>{r.name}</strong><span>{r.description}</span></div><span className={r.enabled?'rule-state enabled':'rule-state'}>{r.enabled?'Active':'Paused'}</span><button className={r.enabled?'toggle-switch on':'toggle-switch'} onClick={()=>toggleRule(r.id)} aria-label={'Toggle '+r.name}><i/></button></div><div className="rule-usage"><div><span>Used {money(r.spent)} of {money(r.limit)}</span><strong>{r.limit?Math.round(r.spent/r.limit*100):0}%</strong></div><div className="progress-track"><span style={{width:Math.min(100,r.limit?r.spent/r.limit*100:0)+'%'}}/></div></div></article>)}</div><p className="demo-footnote"><LockKeyhole size={14}/> These are simulated permission settings. No financial account is connected.</p></>}
+      {page==='Integrations'&&<><div className="page-heading"><div><div className="eyebrow">CONNECTED SERVICES</div><h1>Integrations</h1><p>Connect the tools you use to shop and pay.</p></div><span className="live-pill"><i/> {connected.length} CONNECTED</span></div><section className="integration-banner panel"><div className="integration-banner-icon"><Link2 size={21}/></div><div><strong>Your accounts, connected on your terms.</strong><span>Connections shown here are demo states. No credentials or payment permissions are requested.</span></div></section><div className="integration-grid">{[{name:'PayPal',desc:'Payment account and checkout',letter:'P',tone:'paypal'},{name:'Amazon',desc:'Shopping and product discovery',letter:'a',tone:'amazon'},{name:'Google',desc:'Identity and productivity',letter:'G',tone:'google'},{name:'Shopify',desc:'Store and order information',letter:'S',tone:'shopify'}].map(x=><article className="integration-card panel" key={x.name}><div className={'integration-logo '+x.tone}>{x.letter}</div><div className="integration-copy"><strong>{x.name}</strong><span>{x.desc}</span></div>{connected.includes(x.name)?<button className="connected-button" onClick={()=>notify(x.name+' is connected in demo mode.')}><Check size={13}/> Connected</button>:<button className="secondary-button" onClick={()=>{setConnected(v=>[...v,x.name]);notify(x.name+' connected in demo mode.')}}>Connect</button>}</article>)}</div><div className="safety-banner"><ShieldCheck size={18}/><div><strong>Least-privilege by design</strong><span>Future integrations will request only the access required for their feature.</span></div></div></>}
+      {page==='Settings'&&<><div className="page-heading"><div><div className="eyebrow">ACCOUNT PREFERENCES</div><h1>Settings</h1><p>Manage your profile, budget and security preferences.</p></div><button className="primary-button" onClick={()=>notify('Settings saved in this demo session.')}><Check size={15}/> Save changes</button></div><div className="settings-layout"><div className="settings-nav panel"><button className="settings-tab active"><Settings size={15}/> General</button><button className="settings-tab" onClick={()=>notify('Security settings are coming soon.')}><LockKeyhole size={15}/> Security</button><button className="settings-tab" onClick={()=>notify('Notification settings are coming soon.')}><Bell size={15}/> Notifications</button></div><div className="settings-content panel"><div className="settings-section"><h2>Personal information</h2><p>Update the details associated with your PayPilot profile.</p><label className="field-label">Full name<input value={name} onChange={e=>setName(e.target.value)}/></label><label className="field-label">Email address<input value={email} onChange={e=>setEmail(e.target.value)}/></label></div><div className="settings-section"><h2>Budget preferences</h2><p>Your monthly budget helps PayPilot make more relevant recommendations.</p><label className="field-label">Monthly spending budget (INR)<input type="number" value={budget} onChange={e=>setBudget(e.target.value)}/></label></div><div className="settings-section"><h2>Security & permissions</h2><div className="settings-security"><div><strong>Human approval required</strong><span>Every payment needs your explicit confirmation.</span></div><span className="status-on"><Check size={13}/> Always on</span></div><div className="settings-security"><div><strong>Auto-purchase</strong><span>PayPilot cannot complete purchases automatically.</span></div><span className="status-off">Disabled</span></div></div><button className="primary-button" onClick={()=>notify('Your preferences have been saved in this demo session.')}><Check size={15}/> Save preferences</button></div></div></>}
+      </div>
+    </main>
+    {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><div className="approval-modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" onClick={()=>setModal(null)}><X size={18}/></button>
+      {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{modal.id===1?'Figma Professional':'Wireless keyboard'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(modal.id===1?1200:3499)}</div><div className="modal-detail"><span>Merchant</span><strong>{modal.id===1?'Figma, Inc.':'Amazon'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>PayPal · Demo connection</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15}/> Simulated request only. No payment will be sent.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>decline(modal.id||1)}>Decline</button><button className="primary-button" onClick={()=>approve(modal.id||1)}>Approve request</button></div></>}
+      {modal.type==='product'&&<><div className="eyebrow">PRODUCT COMPARISON</div><div className="product-modal-visual">{currentProduct.icon}</div><h2>{currentProduct.name}</h2><p className="modal-subtitle">A demo listing selected from your shopping search.</p><div className="approval-amount">{money(currentProduct.price)}</div><div className="modal-detail"><span>Merchant</span><strong>{currentProduct.merchant}</strong></div><div className="modal-detail"><span>Rating</span><strong>★ {currentProduct.rating}/5</strong></div><div className="modal-detail"><span>Price difference</span><strong className="status-on">Save {money(currentProduct.saving)}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> No purchase is made. Add to saved items to compare later.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>toggleSaved(currentProduct.id)}>{savedProducts.includes(currentProduct.id)?'Remove saved':'Save item'}</button><button className="primary-button" onClick={()=>{setModal(null);go('Approvals');notify('Checkout is not enabled in demo mode.')}}>Continue to review</button></div></>}
+      {modal.type==='rule'&&<><div className="modal-icon"><SlidersHorizontal size={22}/></div><div className="eyebrow">CUSTOM PERMISSION</div><h2>Create a spending rule</h2><p className="modal-subtitle">Define a boundary for your AI shopping assistant.</p><label className="field-label">Rule name<input value={newRule.name} onChange={e=>setNewRule(v=>({...v,name:e.target.value}))} placeholder="e.g. Electronics purchases"/></label><label className="field-label">Description<input value={newRule.description} onChange={e=>setNewRule(v=>({...v,description:e.target.value}))} placeholder="What does this rule cover?"/></label><label className="field-label">Spending limit (INR)<input type="number" value={newRule.limit} onChange={e=>setNewRule(v=>({...v,limit:e.target.value}))}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" onClick={addRule}>Create rule</button></div></>}
+    </div></div>}
+    {notice&&<div className="toast"><Check size={16}/>{notice}</div>}
+  </div>;
+};
 export default App;
