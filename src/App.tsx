@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePersistentState } from './hooks/usePersistentState';
 import { apiRequest } from './lib/api';
 import {
-  Activity, ArrowUpRight, Bell, Bookmark, Check, ChevronDown, CircleHelp, Compass,
+  Activity, ArrowUpRight, Bell, Check, ChevronDown, CircleHelp, Compass,
   CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
   ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
   Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
@@ -10,16 +10,14 @@ import {
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
+type Page = 'Overview' | 'AI Shopping' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
 type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
 type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
 type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
 declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
-type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
 const nav = [
   { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
   { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
-  { label:'Saved products' as Page, icon:Bookmark, group:'WORKSPACE' },
   { label:'Approvals' as Page, icon:ShieldCheck, group:'WORKSPACE' },
   { label:'Activity' as Page, icon:Activity, group:'MANAGE' },
   { label:'Spending rules' as Page, icon:SlidersHorizontal, group:'MANAGE' },
@@ -28,6 +26,12 @@ const nav = [
 ];
 const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
+const products = [
+  {id:1,name:'Sony WH-CH720N',category:'Electronics',price:7490,old:9990,rating:'4.4',merchant:'Amazon',tag:'Best value',saving:2500,icon:'🎧',keywords:'wireless headphones noise cancelling audio'},
+  {id:2,name:'Logitech MX Master 3S',category:'Electronics',price:8495,old:10995,rating:'4.7',merchant:'Flipkart',tag:'Top rated',saving:2500,icon:'🖱️',keywords:'mouse ergonomic productivity computer'},
+  {id:3,name:'Kindle Paperwhite',category:'Books & learning',price:13999,old:15999,rating:'4.6',merchant:'Amazon',tag:'Popular',saving:2000,icon:'📖',keywords:'ebook reader kindle books reading'},
+  {id:4,name:'OnePlus Nord Buds 3',category:'Electronics',price:2299,old:2799,rating:'4.3',merchant:'Amazon',tag:'Budget pick',saving:500,icon:'🎧',keywords:'wireless headphones earbuds audio'},
+];
 const App = () => {
   const [page,setPage] = useState<Page>('Overview');
   const [dark,setDark] = usePersistentState('paypilot:dark',false);
@@ -37,7 +41,7 @@ const App = () => {
   const [tx,setTx] = useState<Tx[]>([]);
   const [rules,setRules] = useState<Rule[]>([]);
   const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect';id?:string|number}|null>(null);
+  const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:string|number}|null>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
   const [connected] = useState<string[]>([]);
@@ -56,7 +60,7 @@ const App = () => {
   const [aiResearch,setAiResearch] = useState<AiResearch|null>(null);
   const [aiLoading,setAiLoading] = useState(false);
   const [productSearch,setProductSearch] = useState('wireless headphones');
-  const [savedProducts,setSavedProducts] = useState<SavedProduct[]>([]);
+  const [savedProducts,setSavedProducts] = usePersistentState<number[]>('paypilot:saved-products',[]);
   const [range,setRange] = usePersistentState('paypilot:chart-range','This week');
   const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
   useEffect(() => {
@@ -65,19 +69,16 @@ const App = () => {
     setApiError('');
     const loadWorkspace = async () => {
       try {
-        const [approvalData, ruleData, transactionData, profileData, savedData] = await Promise.all([
+        const [approvalData, ruleData, transactionData, profileData] = await Promise.all([
           apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
           apiRequest<{rules:any[]}>('/api/rules',apiToken),
           apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-      apiRequest<{products:any[]}>('/api/saved-products',apiToken),
           apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken),
-          apiRequest<{products:any[]}>('/api/saved-products',apiToken),
         ]);
         if (!active) return;
         setName(profileData.user.name);
         setEmail(profileData.user.email);
         setBudget(String(profileData.user.monthlyBudget));
-        setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
         setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
         setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
         setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
@@ -119,7 +120,8 @@ const App = () => {
 
   const go = (p:Page) => {setPage(p);setMobileOpen(false);};
   const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-    const monthlyBudget = Math.max(0,Number(budget)||0);
+  const currentProduct = products[0];
+  const monthlyBudget = Math.max(0,Number(budget)||0);
   const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
   const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
   const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:7},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-6+index);const key=date.toDateString();return {day:date.toLocaleDateString(undefined,{weekday:'short'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx]);
@@ -129,13 +131,12 @@ const App = () => {
   const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
   const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
   const refreshWorkspace = async () => {
-    const [approvalData,ruleData,transactionData,savedData] = await Promise.all([
+    const [approvalData,ruleData,transactionData] = await Promise.all([
       apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
       apiRequest<{rules:any[]}>('/api/rules',apiToken),
       apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
     ]);
     setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-    setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
     setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
     setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
   };
@@ -160,21 +161,14 @@ const App = () => {
       setNewRule({name:'',limit:'5000',description:'',category:'all'});setModal(null);notify('Spending rule saved to your account.');
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not create spending rule.'); }
   };
-  const saveProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
+  const requestProductApproval = async () => {
+    const amount=currentProduct.price;
     try {
-      await apiRequest('/api/saved-products',apiToken,{method:'POST',body:JSON.stringify({title:item.title,url:item.url,merchant:item.merchant,image:item.image,price:item.price,description:item.description})});
-      const data=await apiRequest<{products:any[]}>('/api/saved-products',apiToken);
-      setSavedProducts(data.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-      notify('Product saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
+      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:currentProduct.merchant,item:currentProduct.name,category:currentProduct.category,amount})});
+      await refreshWorkspace();setModal(null);go('Approvals');notify('Purchase request added. No payment was made.');
+    } catch(error) { setModal(null);setApiError(error instanceof Error?error.message:'Could not create purchase request.'); }
   };
-  const removeSavedProduct = async (id:string) => {
-    try {
-      await apiRequest('/api/saved-products/'+id,apiToken,{method:'DELETE'});
-      setSavedProducts(v=>v.filter(p=>p.id!==id));
-      notify('Product removed from saved items.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not remove saved product.'); }
-  };
+  const toggleSaved = (id:number) => setSavedProducts(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
   const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
 
   if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
@@ -257,767 +251,7 @@ const App = () => {
         <section className="content-grid"><article className="panel spending-panel"><div className="panel-heading"><div><h2>Budget commitments</h2><p>Approved requests are reserved in your budget; no payment is processed.</p></div><select className="select-button" value={range} onChange={e=>setRange(e.target.value)}><option>This week</option><option>This month</option><option>Last 30 days</option></select></div><div className="chart-legend"><span className="legend-dot"/> Approved purchase requests <strong>{money(committedAmount)}</strong></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={spendingChart} margin={{top:8,right:4,left:-20,bottom:0}}><defs><linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3978ee" stopOpacity={.18}/><stop offset="100%" stopColor="#3978ee" stopOpacity={.01}/></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--chart-grid)"/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} dy={10}/><YAxis axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} tickFormatter={v=>'₹'+v}/><Tooltip contentStyle={{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:10,fontSize:12}} formatter={(v)=>['₹'+v,'Spent']}/><Area type="monotone" dataKey="amount" stroke="#3978ee" strokeWidth={2.5} fill="url(#spendFill)"/></AreaChart></ResponsiveContainer></div></article>
         <article className="panel permission-panel"><div className="panel-heading"><div><h2>Permission center</h2><p>Your AI boundaries at a glance</p></div><span className="live-pill"><i/> ACTIVE</span></div><div className="permission-hero"><div className="permission-shield"><ShieldCheck size={22}/></div><div><strong>You’re in control</strong><span>PayPilot follows your rules.</span></div></div><div className="permission-row"><span>All-purchase limit</span><strong>{money(rules.find(r=>r.enabled&&r.category==='all')?.limit||0)}</strong></div><div className="permission-row"><span>Auto-purchase</span><span className="status-off">Disabled</span></div><div className="permission-row"><span>Human approval</span><span className="status-on"><Check size={13}/> Required</span></div><button className="secondary-button full-button" onClick={()=>go('Spending rules')}>Manage spending rules <ArrowUpRight size={14}/></button></article></section>
         <section className="panel transactions-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>A clear view of your latest transactions</p></div><button className="text-action view-all" onClick={()=>go('Activity')}>View all activity <ArrowUpRight size={14}/></button></div>{transactionRows(tx.slice(0,4))}</section><div className="demo-footnote"><ShieldCheck size={14}/> No real payments are processed by PayPilot. Approved requests are not completed transactions.</div></>}
-      {page==='AI Shopping'&&<><div className="page-heading"><div><div className="eyebrow">SHOPPING ASSISTANT</div><h1>Let AI do the research.</h1><p>Compare options, uncover better prices, and stay within your budget.</p></div><span className="live-pill"><i/> WEB RESEARCH</span></div><section className="ai-search-panel panel"><div className="ai-orb"><Sparkles size={22}/></div><div className="ai-search-content"><h2>What are you looking for?</h2><p>Tell PayPilot what you need. We’ll help you compare before you buy.</p><div className="ai-input-row"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="e.g. noise cancelling headphones under ₹10,000"/><button className="primary-button" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}><Sparkles size={15}/>{aiLoading?'Searching…':'Search the web'}</button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop for coding</button><button onClick={()=>setProductSearch('Wireless headphones')}>Wireless headphones</button><button onClick={()=>setProductSearch('Ergonomic keyboard')}>Ergonomic keyboard</button></div></div></section>{aiResearch&&<section className="panel ai-research-results"><div className="panel-heading"><div><h2>AI research brief</h2><p>{aiResearch.provider || 'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Dismiss</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Seller-page details where accessible. Open a listing to confirm the current offer.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Seller image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified</span>}{item.description&&<p>{item.description}</p>}<a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a>import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePersistentState } from './hooks/usePersistentState';
-import { apiRequest } from './lib/api';
-import {
-  Activity, ArrowUpRight, Bell, Bookmark, Check, ChevronDown, CircleHelp, Compass,
-  CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
-  ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
-  Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
-  Link2
-} from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
-type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
-type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
-type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
-type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
-type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
-const nav = [
-  { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
-  { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
-  { label:'Saved products' as Page, icon:Bookmark, group:'WORKSPACE' },
-  { label:'Approvals' as Page, icon:ShieldCheck, group:'WORKSPACE' },
-  { label:'Activity' as Page, icon:Activity, group:'MANAGE' },
-  { label:'Spending rules' as Page, icon:SlidersHorizontal, group:'MANAGE' },
-  { label:'Integrations' as Page, icon:CreditCard, group:'MANAGE' },
-  { label:'Settings' as Page, icon:Settings, group:'PREFERENCES' },
-];
-const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
-const App = () => {
-  const [page,setPage] = useState<Page>('Overview');
-  const [dark,setDark] = usePersistentState('paypilot:dark',false);
-  const [mobileOpen,setMobileOpen] = useState(false);
-  const [notice,setNotice] = useState('');
-  const [query,setQuery] = useState('');
-  const [tx,setTx] = useState<Tx[]>([]);
-  const [rules,setRules] = useState<Rule[]>([]);
-  const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect';id?:string|number}|null>(null);
-  const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
-  const [filter,setFilter] = useState('All');
-  const [connected] = useState<string[]>([]);
-  const [budget,setBudget] = usePersistentState('paypilot:budget','40000');
-  const [name,setName] = usePersistentState('paypilot:name','');
-  const [email,setEmail] = usePersistentState('paypilot:email','');
-  const [apiToken,setApiToken] = usePersistentState('paypilot:api-token','');
-  const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>('landing');
-  const [authError,setAuthError] = useState('');
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const googleClientId = (import.meta as ImportMeta & {env?:Record<string,string>}).env?.VITE_GOOGLE_CLIENT_ID || '';
-  const [authLoading,setAuthLoading] = useState(false);
-  const [authMode,setAuthMode] = useState<'login'|'register'>('login');
-  const [authPassword,setAuthPassword] = useState('');
-  const [apiError,setApiError] = useState('');
-  const [aiResearch,setAiResearch] = useState<AiResearch|null>(null);
-  const [aiLoading,setAiLoading] = useState(false);
-  const [productSearch,setProductSearch] = useState('wireless headphones');
-  const [savedProducts,setSavedProducts] = useState<SavedProduct[]>([]);
-  const [range,setRange] = usePersistentState('paypilot:chart-range','This week');
-  const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
-  useEffect(() => {
-    if (siteView !== 'dashboard' || !apiToken) return;
-    let active = true;
-    setApiError('');
-    const loadWorkspace = async () => {
-      try {
-        const [approvalData, ruleData, transactionData, profileData, savedData] = await Promise.all([
-          apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-          apiRequest<{rules:any[]}>('/api/rules',apiToken),
-          apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-      apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-          apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken),
-          apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-        ]);
-        if (!active) return;
-        setName(profileData.user.name);
-        setEmail(profileData.user.email);
-        setBudget(String(profileData.user.monthlyBudget));
-        setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-        setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-        setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-      } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : 'Could not load your account data.');
-      }
-    };
-    void loadWorkspace();
-    return () => { active = false; };
-  }, [siteView,apiToken]);
-
-  const authenticate = async () => {if(authLoading)return;setAuthLoading(true);setApiError('');try{const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/'+authMode,undefined,{method:'POST',body:JSON.stringify({name,email,password:authPassword})});setApiToken(data.token);setName(data.user.name);setEmail(data.user.email);setAuthPassword('');setSiteView('dashboard');setAuthError('');notify(authMode==='register'?'Account created and connected.':'Signed in successfully.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to connect account.');}finally{setAuthLoading(false);}};
-  const signOutApi = () => {setApiToken('');setAiResearch(null);setApiError('');setSiteView('landing');notify('Signed out successfully.');};
-  const saveSettings = async () => {if(!apiToken){notify('Preferences are saved in this browser.');return;}setApiError('');try{const data=await apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken,{method:'PATCH',body:JSON.stringify({name,monthlyBudget:Number(budget)})});setName(data.user.name);setEmail(data.user.email);setBudget(String(data.user.monthlyBudget));notify('Profile and budget saved to your API account.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to save settings.');}};
-  const runAiResearch = async () => {setAiLoading(true);setApiError('');try{const data=await apiRequest<AiResearch>('/api/assistant/plan',apiToken,{method:'POST',body:JSON.stringify({query:productSearch,budget:budgetFromQuery(productSearch,Number(budget))})});setAiResearch(data);}catch(error){setApiError(error instanceof Error?error.message:'AI research failed.');}finally{setAiLoading(false);}};
-
-  const handleGoogleCredential = async (credential:string) => {
-    setAuthLoading(true); setAuthError('');
-    try {
-      const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/google',undefined,{method:'POST',body:JSON.stringify({credential})});
-      setApiToken(data.token); setName(data.user.name); setEmail(data.user.email); setSiteView('dashboard'); setAuthError('');
-    } catch(error) { setAuthError(error instanceof Error?error.message:'Google sign-in failed.'); }
-    finally { setAuthLoading(false); }
-  };
-  useEffect(() => {
-    if(siteView!=='auth' || !googleClientId) return;
-    let attempts=0;
-    const render=() => {
-      if(!window.google || !googleButtonRef.current) return false;
-      googleButtonRef.current.innerHTML='';
-      window.google.accounts.id.initialize({client_id:googleClientId,callback:(response)=>void handleGoogleCredential(response.credential)});
-      window.google.accounts.id.renderButton(googleButtonRef.current,{theme:'outline',size:'large',text:authMode==='register'?'signup_with':'signin_with',shape:'rectangular',width:320});
-      return true;
-    };
-    if(render()) return;
-    const timer=window.setInterval(()=>{attempts+=1;if(render()||attempts>=40)window.clearInterval(timer);},250);
-    return ()=>window.clearInterval(timer);
-  },[siteView,authMode,googleClientId]);
-
-  const go = (p:Page) => {setPage(p);setMobileOpen(false);};
-  const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-    const monthlyBudget = Math.max(0,Number(budget)||0);
-  const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
-  const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
-  const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:7},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-6+index);const key=date.toDateString();return {day:date.toLocaleDateString(undefined,{weekday:'short'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx]);
-  const availableBudget = Math.max(0,monthlyBudget-committedAmount);
-  const budgetUsed = monthlyBudget>0?Math.min(100,committedAmount/monthlyBudget*100):0;
-  const pendingCount = requests.filter(a=>a.status==='pending').length;
-  const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
-  const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
-  const refreshWorkspace = async () => {
-    const [approvalData,ruleData,transactionData,savedData] = await Promise.all([
-      apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-      apiRequest<{rules:any[]}>('/api/rules',apiToken),
-      apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-    ]);
-    setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-    setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-    setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-    setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-  };
-  const approve = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'approved'})}); await refreshWorkspace(); setModal(null); notify('Request approved. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
-  };
-  const decline = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not decline request.'); }
-  };
-  const toggleRule = async (id:string) => {
-    const rule=rules.find(r=>r.id===id); if(!rule)return;
-    try { const data=await apiRequest<{rule:any}>('/api/rules/'+id,apiToken,{method:'PATCH',body:JSON.stringify({enabled:!rule.enabled})}); setRules(v=>v.map(r=>r.id===id?{...r,enabled:data.rule.enabled}:r)); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not update spending rule.'); }
-  };
-  const addRule = async () => {
-    if(!newRule.name.trim()||!Number.isFinite(Number(newRule.limit))||Number(newRule.limit)<=0)return;
-    try {
-      const data=await apiRequest<{rule:any}>('/api/rules',apiToken,{method:'POST',body:JSON.stringify(newRule)});
-      const r=data.rule; setRules(v=>[{id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled},...v]);
-      setNewRule({name:'',limit:'5000',description:'',category:'all'});setModal(null);notify('Spending rule saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not create spending rule.'); }
-  };
-  const saveProduct = async (item:AiResearch['products'][number]) => {
-    try {
-      await apiRequest('/api/saved-products',apiToken,{method:'POST',body:JSON.stringify({title:item.title,url:item.url,merchant:item.merchant,image:item.image,price:item.price,description:item.description})});
-      const data=await apiRequest<{products:any[]}>('/api/saved-products',apiToken);
-      setSavedProducts(data.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-      notify('Product saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
-  };
-  const removeSavedProduct = async (id:string) => {
-    try {
-      await apiRequest('/api/saved-products/'+id,apiToken,{method:'DELETE'});
-      setSavedProducts(v=>v.filter(p=>p.id!==id));
-      notify('Product removed from saved items.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not remove saved product.'); }
-  };
-  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
-
-  if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
-    <div className="pp-announcement"><span>MEET A MORE THOUGHTFUL WAY TO SHOP</span><a href="#pp-how">See how PayPilot works <ArrowUpRight size={13}/></a></div>
-    <header className="pp-header">
-      <div className="pp-header-inner">
-        <button className="pp-logo" onClick={()=>setSiteView('landing')} aria-label="PayPilot home"><span className="pp-logo-symbol"><Compass size={19}/></span><span>PayPilot</span></button>
-        <nav className="pp-main-nav"><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a><a href="#pp-control">Our approach</a></nav>
-        <div className="pp-header-actions">
-          {apiToken&&<button className="pp-dashboard-link" onClick={()=>setSiteView('dashboard')}>Dashboard</button>}
-          <button className="pp-login" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button>
-          <button className="pp-signup" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>
-        </div>
-      </div>
-    </header>
-    <main>
-      <section className="pp-hero pp-hero-video-layout">
-        <div className="pp-hero-inner">
-          <div className="pp-hero-copy">
-            <div className="pp-kicker"><span/> A BETTER WAY TO DECIDE</div>
-            <h1>Good purchases start with <em>good decisions.</em></h1>
-            <p>Meet the shopping assistant that helps you research what matters, compare your options and stay close to your budget.</p>
-            <div className="pp-hero-buttons">
-              <button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={17}/></button>
-              <a className="pp-text-button" href="#pp-how">See how it works <ArrowUpRight size={15}/></a>
-            </div>
-            <div className="pp-hero-assurance"><ShieldCheck size={17}/><span>No automatic purchases. Your decision always comes first.</span></div>
-          </div>
-          <div className="pp-hero-video" aria-hidden="true">
-            <video className="pp-hero-video-media" autoPlay muted loop playsInline preload="metadata" poster="https://images.pexels.com/photos/6213998/pexels-photo-6213998.jpeg?auto=compress&cs=tinysrgb&w=1800">
-              <source src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4" type="video/mp4"/>
-            </video>
-            <div className="pp-hero-video-overlay"/>
-            <div className="pp-hero-video-caption"><span>SHOP WITH MORE CLARITY</span><span>PAYPILOT AI</span></div>
-          </div>
-        </div>
-      </section>
-      <section className="pp-proofbar"><div><strong>Less guesswork.</strong><span>More useful research.</span></div><div><Search size={19}/><span>Explore options</span></div><div><Wallet size={19}/><span>Respect your budget</span></div><div><ShieldCheck size={19}/><span>Stay in control</span></div></section>
-      <section className="pp-intro-section" id="pp-shopping">
-        <div className="pp-intro-heading"><div className="pp-kicker">SHOPPING, WITH A PLAN</div><h2>From “I need this” to “I know what to choose.”</h2></div>
-        <p>Buying something online shouldn't mean opening twenty tabs, second-guessing prices or losing sight of your budget. PayPilot helps bring the important details together.</p>
-      </section>
-      <section className="pp-feature-stack">
-        <article className="pp-feature-block">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1100&q=85" alt="Wireless headphones product detail"/><div className="pp-image-label">01 — RESEARCH WITH CONTEXT</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">01 / FIND YOUR FIT</span><h3>Research that starts with what you actually need.</h3><p>Tell PayPilot what you're shopping for, what matters most and how much you want to spend. Explore AI-assisted research and the sources behind it.</p><button className="pp-inline-link" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Explore AI shopping <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block pp-feature-reverse">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1100&q=85" alt="Laptop on a clean desk for planning and comparing purchases"/><div className="pp-image-label">02 — MAKE YOUR BUDGET WORK</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">02 / KEEP PERSPECTIVE</span><h3>A budget isn't a restriction. It's your plan.</h3><p>Set spending limits that make sense for you. Keep your budget visible while you compare products and think through the trade-offs.</p><button className="pp-inline-link" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create your account <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block">
-          <div className="pp-feature-image pp-feature-image-approval"><img src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1100&q=85" alt="Customer reviewing a purchase before completing checkout"/><div className="pp-image-label">03 — YOU MAKE THE CALL</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">03 / STAY IN CONTROL</span><h3>Helpful recommendations. Never decisions made for you.</h3><p>PayPilot is designed to help you prepare, not take over. It does not place orders or send payments. You remain in charge of every next step.</p><a className="pp-inline-link" href="#pp-control">Our approach to control <ArrowUpRight size={16}/></a></div>
-        </article>
-      </section>
-      <section className="pp-product-band"><div className="pp-product-band-inner"><div className="pp-product-band-copy"><div className="pp-kicker">MADE TO FEEL SIMPLE</div><h2>Your shopping research.<br/><em>All in one place.</em></h2><p>Move from a question to a clearer shortlist with a focused workspace for product research, comparisons and spending preferences.</p><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Start exploring <ArrowUpRight size={16}/></button></div><div className="pp-app-preview"><div className="pp-app-top"><span><i/> PayPilot</span><span>AI SHOPPING</span></div><div className="pp-app-greeting">Let's find the right fit.</div><div className="pp-app-search"><Search size={16}/><span>Headphones for work under ₹10,000</span><ArrowUpRight size={15}/></div><div className="pp-app-meta"><span>YOUR PREFERENCES</span><span>EDIT SEARCH</span></div><div className="pp-app-chips"><i>Noise cancelling</i><i>Comfortable</i><i>Long battery</i></div><div className="pp-app-list-title"><strong>Research checklist</strong><span>Based on your search</span></div><div className="pp-app-list-row"><span className="pp-app-thumb">01</span><span><b>Compare sound quality</b><small>Features, reviews and fit</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">02</span><span><b>Check current pricing</b><small>Review retailer sources</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">03</span><span><b>Stay within your budget</b><small>Your limit stays in view</small></span><Check size={16}/></div><div className="pp-app-disclaimer">Illustrative product interface · Not live prices or product listings</div></div></div></section>
-      <section className="pp-how-section" id="pp-how"><div className="pp-how-inner"><div className="pp-kicker">A CLEARER WAY FORWARD</div><h2>Three steps to a more confident choice.</h2><div className="pp-steps"><article><span>01</span><div><h3>Tell us what you're after.</h3><p>Share the product, your priorities and the budget you're working with.</p></div></article><article><span>02</span><div><h3>Explore the research.</h3><p>Review relevant options, useful details and available source links.</p></div></article><article><span>03</span><div><h3>Make the call yourself.</h3><p>Choose what works for you. PayPilot never completes a purchase automatically.</p></div></article></div></div></section>
-      <section className="pp-control-section" id="pp-control"><div className="pp-control-photo"><img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1000&q=80" alt="A customer making their own payment decision"/></div><div className="pp-control-copy"><div className="pp-kicker">YOUR CHOICE. YOUR CONTROL.</div><h2>Technology should support your decisions, <em>not make them.</em></h2><p>PayPilot is an AI shopping research and budgeting assistant. It is not a payment processor, and it will not check out or spend money on your behalf.</p><div className="pp-control-points"><span><Check size={16}/> You review the research</span><span><Check size={16}/> You set your budget</span><span><Check size={16}/> You make the final decision</span></div></div></section>
-      <section className="pp-bottom-cta"><div className="pp-kicker">YOUR NEXT PURCHASE STARTS HERE</div><h2>Take a moment. Make a better choice.</h2><p>Try AI shopping with no account required. Sign up when you're ready to save your preferences.</p><div><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={16}/></button><button className="pp-cta-secondary" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create an account</button></div></section>
-    </main>
-    <footer className="pp-footer"><div className="pp-footer-inner"><div className="pp-footer-brand"><button className="pp-logo" onClick={()=>setSiteView('landing')}><span className="pp-logo-symbol">P</span><span>PayPilot</span></button><p>Make more informed purchase decisions.</p></div><div className="pp-footer-links"><div><strong>EXPLORE</strong><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a></div><div><strong>YOUR ACCOUNT</strong><button onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button><button onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>{apiToken&&<button onClick={()=>setSiteView('dashboard')}>Dashboard</button>}</div><div><strong>PAYPILOT</strong><a href="#pp-control">Our approach</a><button onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Guest shopping</button></div></div><div className="pp-footer-bottom"><span>© 2026 PayPilot. All rights reserved.</span><span>AI-assisted research. Human-led decisions.</span></div></div></footer>
-  </div>;
-  if(siteView==='auth') return <div className={dark?'auth-page dark':'auth-page'}><button className="auth-back-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark"><Compass size={19}/></span> paypilot<span>AI</span></button><div className="auth-card"><div className="auth-mark"><Sparkles size={21}/></div><div className="public-eyebrow">{authMode==='login'?'WELCOME BACK':'GET STARTED'}</div><h1>{authMode==='login'?'Sign in to PayPilot':'Create your account'}</h1><p>{authMode==='login'?'Continue to your personal shopping and finance workspace.':'Save your preferences and manage your shopping workspace.'}</p><div className="auth-switch"><button className={authMode==='login'?'active':''} onClick={()=>{setAuthMode('login');setAuthError('');}}>Sign in</button><button className={authMode==='register'?'active':''} onClick={()=>{setAuthMode('register');setAuthError('');}}>Create account</button></div>{authMode==='register'&&<label className="auth-field">Full name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name"/></label>}<label className="auth-field">Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email"/></label><label className="auth-field">Password<input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="At least 8 characters" autoComplete={authMode==='login'?'current-password':'new-password'}/></label><button className="auth-submit" onClick={authenticate} disabled={authLoading||!email.trim()||authPassword.length<8}>{authLoading?'Please wait…':authMode==='login'?'Sign in':'Create account'}</button><div className="auth-divider"><span/>or continue with<span/></div>{googleClientId?<div className="google-button-host" ref={googleButtonRef}/>:<><button type="button" className="google-fallback-button" onClick={()=>setAuthError('Google sign-in needs a Google OAuth Web Client ID. Add VITE_GOOGLE_CLIENT_ID to the frontend and GOOGLE_CLIENT_ID to the backend environment, then redeploy.')}><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.5 13.3l7.8 6.1C12.2 13.5 17.6 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.6 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1Z"/><path fill="#FBBC05" d="M10.3 28.6a14.4 14.4 0 0 1 0-9.2l-7.8-6.1a24 24 0 0 0 0 21.4l7.8-6.1Z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-7.4-5.7c-2.1 1.4-4.9 2.2-8.6 2.2-6.4 0-11.8-4-13.7-9.5l-7.8 6.1C6.5 43 14.6 48 24 48Z"/></svg>Continue with Google</button><small className="auth-config-note">Google account sign-in is ready to enable once the OAuth client ID is added.</small></>}{authError&&<div className="api-error">{authError}</div>}<small className="auth-terms">By continuing, you agree to use PayPilot responsibly. Your account details are handled securely.</small></div><button className="auth-back-link" onClick={()=>{setSiteView('guest-shopping');setPage('AI Shopping');}}>Continue as guest to AI shopping</button></div>;
-  if(siteView==='guest-shopping') return <div className={dark?'guest-page dark':'guest-page'}><header className="guest-header"><button className="public-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark">p</span> paypilot<span>AI</span></button><div><span className="guest-label">GUEST SHOPPING</span><button className="public-link" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Sign in</button><button className="public-nav-cta" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create account</button></div></header><main className="guest-main"><button className="guest-back" onClick={()=>setSiteView('landing')}>← Back to website</button><div className="public-eyebrow">AI SHOPPING ASSISTANT</div><h1>What are you looking for?</h1><p>Search freely as a guest. No account required.</p><div className="guest-search"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void runAiResearch();}} placeholder="e.g. laptop for coding under ₹60,000"/><button className="public-primary" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}>{aiLoading?'Researching…':'Search the web'} <Search size={16}/></button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop under ₹60,000</button><button onClick={()=>setProductSearch('Wireless headphones under ₹5,000')}>Wireless headphones</button><button onClick={()=>setProductSearch('Smartphone with good camera under ₹25,000')}>Smartphone under ₹25,000</button></div>{apiError&&<div className="api-error">{apiError}</div>}{aiResearch&&<section className="panel guest-results"><div className="panel-heading"><div><h2>Research results</h2><p>{aiResearch.provider||'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Clear</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Details are taken from the seller page where available.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified on page</span>}{item.description&&<p>{item.description}</p>}<button className="text-action save-product-action" import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePersistentState } from './hooks/usePersistentState';
-import { apiRequest } from './lib/api';
-import {
-  Activity, ArrowUpRight, Bell, Bookmark, Check, ChevronDown, CircleHelp, Compass,
-  CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
-  ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
-  Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
-  Link2
-} from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
-type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
-type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
-type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
-type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
-type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
-const nav = [
-  { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
-  { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
-  { label:'Saved products' as Page, icon:Bookmark, group:'WORKSPACE' },
-  { label:'Approvals' as Page, icon:ShieldCheck, group:'WORKSPACE' },
-  { label:'Activity' as Page, icon:Activity, group:'MANAGE' },
-  { label:'Spending rules' as Page, icon:SlidersHorizontal, group:'MANAGE' },
-  { label:'Integrations' as Page, icon:CreditCard, group:'MANAGE' },
-  { label:'Settings' as Page, icon:Settings, group:'PREFERENCES' },
-];
-const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
-const App = () => {
-  const [page,setPage] = useState<Page>('Overview');
-  const [dark,setDark] = usePersistentState('paypilot:dark',false);
-  const [mobileOpen,setMobileOpen] = useState(false);
-  const [notice,setNotice] = useState('');
-  const [query,setQuery] = useState('');
-  const [tx,setTx] = useState<Tx[]>([]);
-  const [rules,setRules] = useState<Rule[]>([]);
-  const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect';id?:string|number}|null>(null);
-  const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
-  const [filter,setFilter] = useState('All');
-  const [connected] = useState<string[]>([]);
-  const [budget,setBudget] = usePersistentState('paypilot:budget','40000');
-  const [name,setName] = usePersistentState('paypilot:name','');
-  const [email,setEmail] = usePersistentState('paypilot:email','');
-  const [apiToken,setApiToken] = usePersistentState('paypilot:api-token','');
-  const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>('landing');
-  const [authError,setAuthError] = useState('');
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const googleClientId = (import.meta as ImportMeta & {env?:Record<string,string>}).env?.VITE_GOOGLE_CLIENT_ID || '';
-  const [authLoading,setAuthLoading] = useState(false);
-  const [authMode,setAuthMode] = useState<'login'|'register'>('login');
-  const [authPassword,setAuthPassword] = useState('');
-  const [apiError,setApiError] = useState('');
-  const [aiResearch,setAiResearch] = useState<AiResearch|null>(null);
-  const [aiLoading,setAiLoading] = useState(false);
-  const [productSearch,setProductSearch] = useState('wireless headphones');
-  const [savedProducts,setSavedProducts] = useState<SavedProduct[]>([]);
-  const [range,setRange] = usePersistentState('paypilot:chart-range','This week');
-  const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
-  useEffect(() => {
-    if (siteView !== 'dashboard' || !apiToken) return;
-    let active = true;
-    setApiError('');
-    const loadWorkspace = async () => {
-      try {
-        const [approvalData, ruleData, transactionData, profileData, savedData] = await Promise.all([
-          apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-          apiRequest<{rules:any[]}>('/api/rules',apiToken),
-          apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-      apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-          apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken),
-          apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-        ]);
-        if (!active) return;
-        setName(profileData.user.name);
-        setEmail(profileData.user.email);
-        setBudget(String(profileData.user.monthlyBudget));
-        setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-        setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-        setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-      } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : 'Could not load your account data.');
-      }
-    };
-    void loadWorkspace();
-    return () => { active = false; };
-  }, [siteView,apiToken]);
-
-  const authenticate = async () => {if(authLoading)return;setAuthLoading(true);setApiError('');try{const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/'+authMode,undefined,{method:'POST',body:JSON.stringify({name,email,password:authPassword})});setApiToken(data.token);setName(data.user.name);setEmail(data.user.email);setAuthPassword('');setSiteView('dashboard');setAuthError('');notify(authMode==='register'?'Account created and connected.':'Signed in successfully.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to connect account.');}finally{setAuthLoading(false);}};
-  const signOutApi = () => {setApiToken('');setAiResearch(null);setApiError('');setSiteView('landing');notify('Signed out successfully.');};
-  const saveSettings = async () => {if(!apiToken){notify('Preferences are saved in this browser.');return;}setApiError('');try{const data=await apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken,{method:'PATCH',body:JSON.stringify({name,monthlyBudget:Number(budget)})});setName(data.user.name);setEmail(data.user.email);setBudget(String(data.user.monthlyBudget));notify('Profile and budget saved to your API account.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to save settings.');}};
-  const runAiResearch = async () => {setAiLoading(true);setApiError('');try{const data=await apiRequest<AiResearch>('/api/assistant/plan',apiToken,{method:'POST',body:JSON.stringify({query:productSearch,budget:budgetFromQuery(productSearch,Number(budget))})});setAiResearch(data);}catch(error){setApiError(error instanceof Error?error.message:'AI research failed.');}finally{setAiLoading(false);}};
-
-  const handleGoogleCredential = async (credential:string) => {
-    setAuthLoading(true); setAuthError('');
-    try {
-      const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/google',undefined,{method:'POST',body:JSON.stringify({credential})});
-      setApiToken(data.token); setName(data.user.name); setEmail(data.user.email); setSiteView('dashboard'); setAuthError('');
-    } catch(error) { setAuthError(error instanceof Error?error.message:'Google sign-in failed.'); }
-    finally { setAuthLoading(false); }
-  };
-  useEffect(() => {
-    if(siteView!=='auth' || !googleClientId) return;
-    let attempts=0;
-    const render=() => {
-      if(!window.google || !googleButtonRef.current) return false;
-      googleButtonRef.current.innerHTML='';
-      window.google.accounts.id.initialize({client_id:googleClientId,callback:(response)=>void handleGoogleCredential(response.credential)});
-      window.google.accounts.id.renderButton(googleButtonRef.current,{theme:'outline',size:'large',text:authMode==='register'?'signup_with':'signin_with',shape:'rectangular',width:320});
-      return true;
-    };
-    if(render()) return;
-    const timer=window.setInterval(()=>{attempts+=1;if(render()||attempts>=40)window.clearInterval(timer);},250);
-    return ()=>window.clearInterval(timer);
-  },[siteView,authMode,googleClientId]);
-
-  const go = (p:Page) => {setPage(p);setMobileOpen(false);};
-  const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-    const monthlyBudget = Math.max(0,Number(budget)||0);
-  const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
-  const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
-  const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:7},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-6+index);const key=date.toDateString();return {day:date.toLocaleDateString(undefined,{weekday:'short'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx]);
-  const availableBudget = Math.max(0,monthlyBudget-committedAmount);
-  const budgetUsed = monthlyBudget>0?Math.min(100,committedAmount/monthlyBudget*100):0;
-  const pendingCount = requests.filter(a=>a.status==='pending').length;
-  const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
-  const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
-  const refreshWorkspace = async () => {
-    const [approvalData,ruleData,transactionData,savedData] = await Promise.all([
-      apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-      apiRequest<{rules:any[]}>('/api/rules',apiToken),
-      apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-    ]);
-    setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-    setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-    setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-    setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-  };
-  const approve = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'approved'})}); await refreshWorkspace(); setModal(null); notify('Request approved. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
-  };
-  const decline = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not decline request.'); }
-  };
-  const toggleRule = async (id:string) => {
-    const rule=rules.find(r=>r.id===id); if(!rule)return;
-    try { const data=await apiRequest<{rule:any}>('/api/rules/'+id,apiToken,{method:'PATCH',body:JSON.stringify({enabled:!rule.enabled})}); setRules(v=>v.map(r=>r.id===id?{...r,enabled:data.rule.enabled}:r)); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not update spending rule.'); }
-  };
-  const addRule = async () => {
-    if(!newRule.name.trim()||!Number.isFinite(Number(newRule.limit))||Number(newRule.limit)<=0)return;
-    try {
-      const data=await apiRequest<{rule:any}>('/api/rules',apiToken,{method:'POST',body:JSON.stringify(newRule)});
-      const r=data.rule; setRules(v=>[{id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled},...v]);
-      setNewRule({name:'',limit:'5000',description:'',category:'all'});setModal(null);notify('Spending rule saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not create spending rule.'); }
-  };
-  const saveProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
-    try {
-      await apiRequest('/api/saved-products',apiToken,{method:'POST',body:JSON.stringify({title:item.title,url:item.url,merchant:item.merchant,image:item.image,price:item.price,description:item.description})});
-      const data=await apiRequest<{products:any[]}>('/api/saved-products',apiToken);
-      setSavedProducts(data.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-      notify('Product saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
-  };
-  const removeSavedProduct = async (id:string) => {
-    try {
-      await apiRequest('/api/saved-products/'+id,apiToken,{method:'DELETE'});
-      setSavedProducts(v=>v.filter(p=>p.id!==id));
-      notify('Product removed from saved items.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not remove saved product.'); }
-  };
-  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
-
-  if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
-    <div className="pp-announcement"><span>MEET A MORE THOUGHTFUL WAY TO SHOP</span><a href="#pp-how">See how PayPilot works <ArrowUpRight size={13}/></a></div>
-    <header className="pp-header">
-      <div className="pp-header-inner">
-        <button className="pp-logo" onClick={()=>setSiteView('landing')} aria-label="PayPilot home"><span className="pp-logo-symbol"><Compass size={19}/></span><span>PayPilot</span></button>
-        <nav className="pp-main-nav"><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a><a href="#pp-control">Our approach</a></nav>
-        <div className="pp-header-actions">
-          {apiToken&&<button className="pp-dashboard-link" onClick={()=>setSiteView('dashboard')}>Dashboard</button>}
-          <button className="pp-login" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button>
-          <button className="pp-signup" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>
-        </div>
-      </div>
-    </header>
-    <main>
-      <section className="pp-hero pp-hero-video-layout">
-        <div className="pp-hero-inner">
-          <div className="pp-hero-copy">
-            <div className="pp-kicker"><span/> A BETTER WAY TO DECIDE</div>
-            <h1>Good purchases start with <em>good decisions.</em></h1>
-            <p>Meet the shopping assistant that helps you research what matters, compare your options and stay close to your budget.</p>
-            <div className="pp-hero-buttons">
-              <button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={17}/></button>
-              <a className="pp-text-button" href="#pp-how">See how it works <ArrowUpRight size={15}/></a>
-            </div>
-            <div className="pp-hero-assurance"><ShieldCheck size={17}/><span>No automatic purchases. Your decision always comes first.</span></div>
-          </div>
-          <div className="pp-hero-video" aria-hidden="true">
-            <video className="pp-hero-video-media" autoPlay muted loop playsInline preload="metadata" poster="https://images.pexels.com/photos/6213998/pexels-photo-6213998.jpeg?auto=compress&cs=tinysrgb&w=1800">
-              <source src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4" type="video/mp4"/>
-            </video>
-            <div className="pp-hero-video-overlay"/>
-            <div className="pp-hero-video-caption"><span>SHOP WITH MORE CLARITY</span><span>PAYPILOT AI</span></div>
-          </div>
-        </div>
-      </section>
-      <section className="pp-proofbar"><div><strong>Less guesswork.</strong><span>More useful research.</span></div><div><Search size={19}/><span>Explore options</span></div><div><Wallet size={19}/><span>Respect your budget</span></div><div><ShieldCheck size={19}/><span>Stay in control</span></div></section>
-      <section className="pp-intro-section" id="pp-shopping">
-        <div className="pp-intro-heading"><div className="pp-kicker">SHOPPING, WITH A PLAN</div><h2>From “I need this” to “I know what to choose.”</h2></div>
-        <p>Buying something online shouldn't mean opening twenty tabs, second-guessing prices or losing sight of your budget. PayPilot helps bring the important details together.</p>
-      </section>
-      <section className="pp-feature-stack">
-        <article className="pp-feature-block">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1100&q=85" alt="Wireless headphones product detail"/><div className="pp-image-label">01 — RESEARCH WITH CONTEXT</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">01 / FIND YOUR FIT</span><h3>Research that starts with what you actually need.</h3><p>Tell PayPilot what you're shopping for, what matters most and how much you want to spend. Explore AI-assisted research and the sources behind it.</p><button className="pp-inline-link" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Explore AI shopping <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block pp-feature-reverse">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1100&q=85" alt="Laptop on a clean desk for planning and comparing purchases"/><div className="pp-image-label">02 — MAKE YOUR BUDGET WORK</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">02 / KEEP PERSPECTIVE</span><h3>A budget isn't a restriction. It's your plan.</h3><p>Set spending limits that make sense for you. Keep your budget visible while you compare products and think through the trade-offs.</p><button className="pp-inline-link" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create your account <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block">
-          <div className="pp-feature-image pp-feature-image-approval"><img src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1100&q=85" alt="Customer reviewing a purchase before completing checkout"/><div className="pp-image-label">03 — YOU MAKE THE CALL</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">03 / STAY IN CONTROL</span><h3>Helpful recommendations. Never decisions made for you.</h3><p>PayPilot is designed to help you prepare, not take over. It does not place orders or send payments. You remain in charge of every next step.</p><a className="pp-inline-link" href="#pp-control">Our approach to control <ArrowUpRight size={16}/></a></div>
-        </article>
-      </section>
-      <section className="pp-product-band"><div className="pp-product-band-inner"><div className="pp-product-band-copy"><div className="pp-kicker">MADE TO FEEL SIMPLE</div><h2>Your shopping research.<br/><em>All in one place.</em></h2><p>Move from a question to a clearer shortlist with a focused workspace for product research, comparisons and spending preferences.</p><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Start exploring <ArrowUpRight size={16}/></button></div><div className="pp-app-preview"><div className="pp-app-top"><span><i/> PayPilot</span><span>AI SHOPPING</span></div><div className="pp-app-greeting">Let's find the right fit.</div><div className="pp-app-search"><Search size={16}/><span>Headphones for work under ₹10,000</span><ArrowUpRight size={15}/></div><div className="pp-app-meta"><span>YOUR PREFERENCES</span><span>EDIT SEARCH</span></div><div className="pp-app-chips"><i>Noise cancelling</i><i>Comfortable</i><i>Long battery</i></div><div className="pp-app-list-title"><strong>Research checklist</strong><span>Based on your search</span></div><div className="pp-app-list-row"><span className="pp-app-thumb">01</span><span><b>Compare sound quality</b><small>Features, reviews and fit</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">02</span><span><b>Check current pricing</b><small>Review retailer sources</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">03</span><span><b>Stay within your budget</b><small>Your limit stays in view</small></span><Check size={16}/></div><div className="pp-app-disclaimer">Illustrative product interface · Not live prices or product listings</div></div></div></section>
-      <section className="pp-how-section" id="pp-how"><div className="pp-how-inner"><div className="pp-kicker">A CLEARER WAY FORWARD</div><h2>Three steps to a more confident choice.</h2><div className="pp-steps"><article><span>01</span><div><h3>Tell us what you're after.</h3><p>Share the product, your priorities and the budget you're working with.</p></div></article><article><span>02</span><div><h3>Explore the research.</h3><p>Review relevant options, useful details and available source links.</p></div></article><article><span>03</span><div><h3>Make the call yourself.</h3><p>Choose what works for you. PayPilot never completes a purchase automatically.</p></div></article></div></div></section>
-      <section className="pp-control-section" id="pp-control"><div className="pp-control-photo"><img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1000&q=80" alt="A customer making their own payment decision"/></div><div className="pp-control-copy"><div className="pp-kicker">YOUR CHOICE. YOUR CONTROL.</div><h2>Technology should support your decisions, <em>not make them.</em></h2><p>PayPilot is an AI shopping research and budgeting assistant. It is not a payment processor, and it will not check out or spend money on your behalf.</p><div className="pp-control-points"><span><Check size={16}/> You review the research</span><span><Check size={16}/> You set your budget</span><span><Check size={16}/> You make the final decision</span></div></div></section>
-      <section className="pp-bottom-cta"><div className="pp-kicker">YOUR NEXT PURCHASE STARTS HERE</div><h2>Take a moment. Make a better choice.</h2><p>Try AI shopping with no account required. Sign up when you're ready to save your preferences.</p><div><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={16}/></button><button className="pp-cta-secondary" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create an account</button></div></section>
-    </main>
-    <footer className="pp-footer"><div className="pp-footer-inner"><div className="pp-footer-brand"><button className="pp-logo" onClick={()=>setSiteView('landing')}><span className="pp-logo-symbol">P</span><span>PayPilot</span></button><p>Make more informed purchase decisions.</p></div><div className="pp-footer-links"><div><strong>EXPLORE</strong><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a></div><div><strong>YOUR ACCOUNT</strong><button onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button><button onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>{apiToken&&<button onClick={()=>setSiteView('dashboard')}>Dashboard</button>}</div><div><strong>PAYPILOT</strong><a href="#pp-control">Our approach</a><button onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Guest shopping</button></div></div><div className="pp-footer-bottom"><span>© 2026 PayPilot. All rights reserved.</span><span>AI-assisted research. Human-led decisions.</span></div></div></footer>
-  </div>;
-  if(siteView==='auth') return <div className={dark?'auth-page dark':'auth-page'}><button className="auth-back-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark"><Compass size={19}/></span> paypilot<span>AI</span></button><div className="auth-card"><div className="auth-mark"><Sparkles size={21}/></div><div className="public-eyebrow">{authMode==='login'?'WELCOME BACK':'GET STARTED'}</div><h1>{authMode==='login'?'Sign in to PayPilot':'Create your account'}</h1><p>{authMode==='login'?'Continue to your personal shopping and finance workspace.':'Save your preferences and manage your shopping workspace.'}</p><div className="auth-switch"><button className={authMode==='login'?'active':''} onClick={()=>{setAuthMode('login');setAuthError('');}}>Sign in</button><button className={authMode==='register'?'active':''} onClick={()=>{setAuthMode('register');setAuthError('');}}>Create account</button></div>{authMode==='register'&&<label className="auth-field">Full name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name"/></label>}<label className="auth-field">Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email"/></label><label className="auth-field">Password<input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="At least 8 characters" autoComplete={authMode==='login'?'current-password':'new-password'}/></label><button className="auth-submit" onClick={authenticate} disabled={authLoading||!email.trim()||authPassword.length<8}>{authLoading?'Please wait…':authMode==='login'?'Sign in':'Create account'}</button><div className="auth-divider"><span/>or continue with<span/></div>{googleClientId?<div className="google-button-host" ref={googleButtonRef}/>:<><button type="button" className="google-fallback-button" onClick={()=>setAuthError('Google sign-in needs a Google OAuth Web Client ID. Add VITE_GOOGLE_CLIENT_ID to the frontend and GOOGLE_CLIENT_ID to the backend environment, then redeploy.')}><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.5 13.3l7.8 6.1C12.2 13.5 17.6 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.6 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1Z"/><path fill="#FBBC05" d="M10.3 28.6a14.4 14.4 0 0 1 0-9.2l-7.8-6.1a24 24 0 0 0 0 21.4l7.8-6.1Z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-7.4-5.7c-2.1 1.4-4.9 2.2-8.6 2.2-6.4 0-11.8-4-13.7-9.5l-7.8 6.1C6.5 43 14.6 48 24 48Z"/></svg>Continue with Google</button><small className="auth-config-note">Google account sign-in is ready to enable once the OAuth client ID is added.</small></>}{authError&&<div className="api-error">{authError}</div>}<small className="auth-terms">By continuing, you agree to use PayPilot responsibly. Your account details are handled securely.</small></div><button className="auth-back-link" onClick={()=>{setSiteView('guest-shopping');setPage('AI Shopping');}}>Continue as guest to AI shopping</button></div>;
-  if(siteView==='guest-shopping') return <div className={dark?'guest-page dark':'guest-page'}><header className="guest-header"><button className="public-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark">p</span> paypilot<span>AI</span></button><div><span className="guest-label">GUEST SHOPPING</span><button className="public-link" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Sign in</button><button className="public-nav-cta" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create account</button></div></header><main className="guest-main"><button className="guest-back" onClick={()=>setSiteView('landing')}>← Back to website</button><div className="public-eyebrow">AI SHOPPING ASSISTANT</div><h1>What are you looking for?</h1><p>Search freely as a guest. No account required.</p><div className="guest-search"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void runAiResearch();}} placeholder="e.g. laptop for coding under ₹60,000"/><button className="public-primary" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}>{aiLoading?'Researching…':'Search the web'} <Search size={16}/></button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop under ₹60,000</button><button onClick={()=>setProductSearch('Wireless headphones under ₹5,000')}>Wireless headphones</button><button onClick={()=>setProductSearch('Smartphone with good camera under ₹25,000')}>Smartphone under ₹25,000</button></div>{apiError&&<div className="api-error">{apiError}</div>}{aiResearch&&<section className="panel guest-results"><div className="panel-heading"><div><h2>Research results</h2><p>{aiResearch.provider||'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Clear</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Details are taken from the seller page where available.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified on page</span>}{item.description&&<p>{item.description}</p>}<a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a></div></article>)}</div></div>}<div className="ai-research-columns"><div><h3>What to prioritize</h3>{aiResearch.result.criteria.map((item,i)=><div className="ai-research-line" key={i}><strong>{item.label}</strong><span>{item.importance}</span></div>)}</div>{aiResearch.result.options.length>0&&<div><h3>Product candidates</h3>{aiResearch.result.options.map((item,i)=><div className="ai-option" key={i}><strong>{item.product}</strong><span>{item.merchant||'Merchant not verified'} · {item.price||'Price not verified'}</span><p>{item.reason}</p><small>{item.verification}</small></div>)}</div>}</div><div className="ai-sources"><strong>Source pages</strong>{aiResearch.sources.map((source,i)=><a key={i} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div><p className="ai-safety-note">{aiResearch.result.safetyNote}</p></section>}<div className="guest-note"><ShieldCheck size={18}/><span>Guest searches are available without signing in. Sign in only when you want to save your workspace and preferences.</span></div></main></div>;
-
-  return <div className={dark?'app-shell dark':'app-shell'}>
-    {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
-    <aside className={mobileOpen?'sidebar sidebar-open':'sidebar'}>
-      <div className="brand"><div className="brand-mark"><Compass size={20}/></div><span className="brand-name">paypilot<span className="brand-ai">AI</span></span><button className="icon-button sidebar-close" onClick={()=>setMobileOpen(false)}><X size={18}/></button></div>
-      <button className="workspace-switch" onClick={()=>notify('Personal workspace selected.')}><div className="workspace-avatar">M</div><div className="workspace-copy"><strong>Personal workspace</strong><span>Free account</span></div><ChevronDown size={15} className="muted-icon"/></button>
-      <nav className="side-nav">{(['WORKSPACE','MANAGE','PREFERENCES'] as const).map(g=><div className="nav-group" key={g}><p className="nav-heading">{g}</p>{nav.filter(n=>n.group===g).map(n=>{const Icon=n.icon;return <button key={n.label} className={page===n.label?'nav-item active':'nav-item'} onClick={()=>go(n.label)}><Icon size={17}/><span>{n.label}</span>{n.label==='Approvals'&&pendingCount>0&&<span className="nav-count">{pendingCount}</span>}</button>})}</div>)}</nav>
-      <div className="sidebar-bottom"><div className="security-note"><div className="security-icon"><LockKeyhole size={15}/></div><div><strong>Your money, your rules.</strong><span>AI never pays without approval.</span></div></div><button className="nav-item help-link" onClick={()=>notify('Help center is coming soon.')}><CircleHelp size={17}/><span>Help center</span></button><div className="profile-row"><div className="profile-avatar">{(name.trim().split(/\\s+/).map(part=>part[0]).join('').slice(0,2)||'PP').toUpperCase()}</div><div className="profile-copy"><strong>{name||'Your account'}</strong><span>{email||'Personal account'}</span></div><button className="icon-button" onClick={()=>go('Settings')} aria-label="Account settings"><MoreHorizontal size={18}/></button></div><button className="nav-item signout-link" onClick={signOutApi}><LockKeyhole size={16}/><span>Sign out</span></button></div>
-    </aside>
-    <main className="main-area">
-      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="topbar-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search transactions..."/></label><button className="icon-button theme-toggle" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button notification-button" onClick={()=>notify('You are all caught up.')} aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">{(name.trim().split(/\\s+/).map(part=>part[0]).join('').slice(0,2)||'PP').toUpperCase()}</div></div></header>
-      <div className="page-content">
-      {page==='Overview'&&<><div className="page-heading"><div><div className="eyebrow">{greeting.toUpperCase()}</div><h1>Your finances, in focus.</h1><p>Here’s what’s happening with your money today.</p></div><button className="primary-button" onClick={()=>go('AI Shopping')}><Sparkles size={16}/> Explore AI shopping</button></div>
-        <section className="metric-grid"><article className="metric-card"><div className="metric-top"><span>Actual spending</span><span className="metric-icon blue"><Wallet size={17}/></span></div><div className="metric-value">{money(spentAmount)}</div><div className="metric-foot"><span className="budget-label">Verified payments only</span><span>no payment processing</span></div></article><article className="metric-card"><div className="metric-top"><span>Available budget</span><span className="metric-icon green"><ShieldCheck size={17}/></span></div><div className="metric-value">{money(availableBudget)}</div><div className="metric-foot"><span className="budget-label">{budgetUsed.toFixed(1)}% committed</span><span>of {money(monthlyBudget)}</span></div><div className="progress-track"><span style={{width:budgetUsed+'%'}}/></div></article><article className="metric-card"><div className="metric-top"><span>Pending approvals</span><span className="metric-icon orange"><Clock3 size={17}/></span></div><div className="metric-value">{String(pendingCount).padStart(2,'0')}</div><div className="metric-foot"><span className="pending-label">Needs your attention</span><button className="text-action" onClick={()=>go('Approvals')}>Review <ArrowUpRight size={13}/></button></div></article><article className="metric-card"><div className="metric-top"><span>Saved products</span><span className="metric-icon violet"><Sparkles size={17}/></span></div><div className="metric-value">{savedProducts.length}</div><div className="metric-foot"><span className="budget-label">Saved to your account</span></div></article></section>
-        <section className="content-grid"><article className="panel spending-panel"><div className="panel-heading"><div><h2>Budget commitments</h2><p>Approved requests are reserved in your budget; no payment is processed.</p></div><select className="select-button" value={range} onChange={e=>setRange(e.target.value)}><option>This week</option><option>This month</option><option>Last 30 days</option></select></div><div className="chart-legend"><span className="legend-dot"/> Approved purchase requests <strong>{money(committedAmount)}</strong></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={spendingChart} margin={{top:8,right:4,left:-20,bottom:0}}><defs><linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3978ee" stopOpacity={.18}/><stop offset="100%" stopColor="#3978ee" stopOpacity={.01}/></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--chart-grid)"/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} dy={10}/><YAxis axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} tickFormatter={v=>'₹'+v}/><Tooltip contentStyle={{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:10,fontSize:12}} formatter={(v)=>['₹'+v,'Spent']}/><Area type="monotone" dataKey="amount" stroke="#3978ee" strokeWidth={2.5} fill="url(#spendFill)"/></AreaChart></ResponsiveContainer></div></article>
-        <article className="panel permission-panel"><div className="panel-heading"><div><h2>Permission center</h2><p>Your AI boundaries at a glance</p></div><span className="live-pill"><i/> ACTIVE</span></div><div className="permission-hero"><div className="permission-shield"><ShieldCheck size={22}/></div><div><strong>You’re in control</strong><span>PayPilot follows your rules.</span></div></div><div className="permission-row"><span>All-purchase limit</span><strong>{money(rules.find(r=>r.enabled&&r.category==='all')?.limit||0)}</strong></div><div className="permission-row"><span>Auto-purchase</span><span className="status-off">Disabled</span></div><div className="permission-row"><span>Human approval</span><span className="status-on"><Check size={13}/> Required</span></div><button className="secondary-button full-button" onClick={()=>go('Spending rules')}>Manage spending rules <ArrowUpRight size={14}/></button></article></section>
-        <section className="panel transactions-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>A clear view of your latest transactions</p></div><button className="text-action view-all" onClick={()=>go('Activity')}>View all activity <ArrowUpRight size={14}/></button></div>{transactionRows(tx.slice(0,4))}</section><div className="demo-footnote"><ShieldCheck size={14}/> No real payments are processed by PayPilot. Approved requests are not completed transactions.</div></>}
-      {page==='AI Shopping'&&<><div className="page-heading"><div><div className="eyebrow">SHOPPING ASSISTANT</div><h1>Let AI do the research.</h1><p>Compare options, uncover better prices, and stay within your budget.</p></div><span className="live-pill"><i/> WEB RESEARCH</span></div><section className="ai-search-panel panel"><div className="ai-orb"><Sparkles size={22}/></div><div className="ai-search-content"><h2>What are you looking for?</h2><p>Tell PayPilot what you need. We’ll help you compare before you buy.</p><div className="ai-input-row"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="e.g. noise cancelling headphones under ₹10,000"/><button className="primary-button" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}><Sparkles size={15}/>{aiLoading?'Searching…':'Search the web'}</button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop for coding</button><button onClick={()=>setProductSearch('Wireless headphones')}>Wireless headphones</button><button onClick={()=>setProductSearch('Ergonomic keyboard')}>Ergonomic keyboard</button></div></div></section>{aiResearch&&<section className="panel ai-research-results"><div className="panel-heading"><div><h2>AI research brief</h2><p>{aiResearch.provider || 'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Dismiss</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Seller-page details where accessible. Open a listing to confirm the current offer.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Seller image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified</span>}{item.description&&<p>{item.description}</p>}<a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a>import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePersistentState } from './hooks/usePersistentState';
-import { apiRequest } from './lib/api';
-import {
-  Activity, ArrowUpRight, Bell, Bookmark, Check, ChevronDown, CircleHelp, Compass,
-  CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
-  ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
-  Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
-  Link2
-} from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
-type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
-type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
-type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
-type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
-type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
-const nav = [
-  { label:'Overview' as Page, icon:LayoutDashboard, group:'WORKSPACE' },
-  { label:'AI Shopping' as Page, icon:ShoppingBag, group:'WORKSPACE' },
-  { label:'Saved products' as Page, icon:Bookmark, group:'WORKSPACE' },
-  { label:'Approvals' as Page, icon:ShieldCheck, group:'WORKSPACE' },
-  { label:'Activity' as Page, icon:Activity, group:'MANAGE' },
-  { label:'Spending rules' as Page, icon:SlidersHorizontal, group:'MANAGE' },
-  { label:'Integrations' as Page, icon:CreditCard, group:'MANAGE' },
-  { label:'Settings' as Page, icon:Settings, group:'PREFERENCES' },
-];
-const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
-const App = () => {
-  const [page,setPage] = useState<Page>('Overview');
-  const [dark,setDark] = usePersistentState('paypilot:dark',false);
-  const [mobileOpen,setMobileOpen] = useState(false);
-  const [notice,setNotice] = useState('');
-  const [query,setQuery] = useState('');
-  const [tx,setTx] = useState<Tx[]>([]);
-  const [rules,setRules] = useState<Rule[]>([]);
-  const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect';id?:string|number}|null>(null);
-  const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
-  const [filter,setFilter] = useState('All');
-  const [connected] = useState<string[]>([]);
-  const [budget,setBudget] = usePersistentState('paypilot:budget','40000');
-  const [name,setName] = usePersistentState('paypilot:name','');
-  const [email,setEmail] = usePersistentState('paypilot:email','');
-  const [apiToken,setApiToken] = usePersistentState('paypilot:api-token','');
-  const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>('landing');
-  const [authError,setAuthError] = useState('');
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const googleClientId = (import.meta as ImportMeta & {env?:Record<string,string>}).env?.VITE_GOOGLE_CLIENT_ID || '';
-  const [authLoading,setAuthLoading] = useState(false);
-  const [authMode,setAuthMode] = useState<'login'|'register'>('login');
-  const [authPassword,setAuthPassword] = useState('');
-  const [apiError,setApiError] = useState('');
-  const [aiResearch,setAiResearch] = useState<AiResearch|null>(null);
-  const [aiLoading,setAiLoading] = useState(false);
-  const [productSearch,setProductSearch] = useState('wireless headphones');
-  const [savedProducts,setSavedProducts] = useState<SavedProduct[]>([]);
-  const [range,setRange] = usePersistentState('paypilot:chart-range','This week');
-  const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
-  useEffect(() => {
-    if (siteView !== 'dashboard' || !apiToken) return;
-    let active = true;
-    setApiError('');
-    const loadWorkspace = async () => {
-      try {
-        const [approvalData, ruleData, transactionData, profileData, savedData] = await Promise.all([
-          apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-          apiRequest<{rules:any[]}>('/api/rules',apiToken),
-          apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-      apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-          apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken),
-          apiRequest<{products:any[]}>('/api/saved-products',apiToken),
-        ]);
-        if (!active) return;
-        setName(profileData.user.name);
-        setEmail(profileData.user.email);
-        setBudget(String(profileData.user.monthlyBudget));
-        setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-        setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-        setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-      } catch (error) {
-        if (active) setApiError(error instanceof Error ? error.message : 'Could not load your account data.');
-      }
-    };
-    void loadWorkspace();
-    return () => { active = false; };
-  }, [siteView,apiToken]);
-
-  const authenticate = async () => {if(authLoading)return;setAuthLoading(true);setApiError('');try{const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/'+authMode,undefined,{method:'POST',body:JSON.stringify({name,email,password:authPassword})});setApiToken(data.token);setName(data.user.name);setEmail(data.user.email);setAuthPassword('');setSiteView('dashboard');setAuthError('');notify(authMode==='register'?'Account created and connected.':'Signed in successfully.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to connect account.');}finally{setAuthLoading(false);}};
-  const signOutApi = () => {setApiToken('');setAiResearch(null);setApiError('');setSiteView('landing');notify('Signed out successfully.');};
-  const saveSettings = async () => {if(!apiToken){notify('Preferences are saved in this browser.');return;}setApiError('');try{const data=await apiRequest<{user:{name:string;email:string;monthlyBudget:number}}>('/api/auth/me',apiToken,{method:'PATCH',body:JSON.stringify({name,monthlyBudget:Number(budget)})});setName(data.user.name);setEmail(data.user.email);setBudget(String(data.user.monthlyBudget));notify('Profile and budget saved to your API account.');}catch(error){setApiError(error instanceof Error?error.message:'Unable to save settings.');}};
-  const runAiResearch = async () => {setAiLoading(true);setApiError('');try{const data=await apiRequest<AiResearch>('/api/assistant/plan',apiToken,{method:'POST',body:JSON.stringify({query:productSearch,budget:budgetFromQuery(productSearch,Number(budget))})});setAiResearch(data);}catch(error){setApiError(error instanceof Error?error.message:'AI research failed.');}finally{setAiLoading(false);}};
-
-  const handleGoogleCredential = async (credential:string) => {
-    setAuthLoading(true); setAuthError('');
-    try {
-      const data=await apiRequest<{token:string;user:{name:string;email:string}}>('/api/auth/google',undefined,{method:'POST',body:JSON.stringify({credential})});
-      setApiToken(data.token); setName(data.user.name); setEmail(data.user.email); setSiteView('dashboard'); setAuthError('');
-    } catch(error) { setAuthError(error instanceof Error?error.message:'Google sign-in failed.'); }
-    finally { setAuthLoading(false); }
-  };
-  useEffect(() => {
-    if(siteView!=='auth' || !googleClientId) return;
-    let attempts=0;
-    const render=() => {
-      if(!window.google || !googleButtonRef.current) return false;
-      googleButtonRef.current.innerHTML='';
-      window.google.accounts.id.initialize({client_id:googleClientId,callback:(response)=>void handleGoogleCredential(response.credential)});
-      window.google.accounts.id.renderButton(googleButtonRef.current,{theme:'outline',size:'large',text:authMode==='register'?'signup_with':'signin_with',shape:'rectangular',width:320});
-      return true;
-    };
-    if(render()) return;
-    const timer=window.setInterval(()=>{attempts+=1;if(render()||attempts>=40)window.clearInterval(timer);},250);
-    return ()=>window.clearInterval(timer);
-  },[siteView,authMode,googleClientId]);
-
-  const go = (p:Page) => {setPage(p);setMobileOpen(false);};
-  const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-    const monthlyBudget = Math.max(0,Number(budget)||0);
-  const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
-  const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
-  const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:7},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-6+index);const key=date.toDateString();return {day:date.toLocaleDateString(undefined,{weekday:'short'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx]);
-  const availableBudget = Math.max(0,monthlyBudget-committedAmount);
-  const budgetUsed = monthlyBudget>0?Math.min(100,committedAmount/monthlyBudget*100):0;
-  const pendingCount = requests.filter(a=>a.status==='pending').length;
-  const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
-  const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
-  const refreshWorkspace = async () => {
-    const [approvalData,ruleData,transactionData,savedData] = await Promise.all([
-      apiRequest<{approvals:any[]}>('/api/approvals',apiToken),
-      apiRequest<{rules:any[]}>('/api/rules',apiToken),
-      apiRequest<{transactions:any[]}>('/api/transactions',apiToken),
-    ]);
-    setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt})));
-    setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-    setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-    setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
-  };
-  const approve = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'approved'})}); await refreshWorkspace(); setModal(null); notify('Request approved. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
-  };
-  const decline = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not decline request.'); }
-  };
-  const toggleRule = async (id:string) => {
-    const rule=rules.find(r=>r.id===id); if(!rule)return;
-    try { const data=await apiRequest<{rule:any}>('/api/rules/'+id,apiToken,{method:'PATCH',body:JSON.stringify({enabled:!rule.enabled})}); setRules(v=>v.map(r=>r.id===id?{...r,enabled:data.rule.enabled}:r)); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not update spending rule.'); }
-  };
-  const addRule = async () => {
-    if(!newRule.name.trim()||!Number.isFinite(Number(newRule.limit))||Number(newRule.limit)<=0)return;
-    try {
-      const data=await apiRequest<{rule:any}>('/api/rules',apiToken,{method:'POST',body:JSON.stringify(newRule)});
-      const r=data.rule; setRules(v=>[{id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled},...v]);
-      setNewRule({name:'',limit:'5000',description:'',category:'all'});setModal(null);notify('Spending rule saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not create spending rule.'); }
-  };
-  const saveProduct = async (item:AiResearch['products'][number]) => {
-    try {
-      await apiRequest('/api/saved-products',apiToken,{method:'POST',body:JSON.stringify({title:item.title,url:item.url,merchant:item.merchant,image:item.image,price:item.price,description:item.description})});
-      const data=await apiRequest<{products:any[]}>('/api/saved-products',apiToken);
-      setSavedProducts(data.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
-      notify('Product saved to your account.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
-  };
-  const removeSavedProduct = async (id:string) => {
-    try {
-      await apiRequest('/api/saved-products/'+id,apiToken,{method:'DELETE'});
-      setSavedProducts(v=>v.filter(p=>p.id!==id));
-      notify('Product removed from saved items.');
-    } catch(error) { setApiError(error instanceof Error?error.message:'Could not remove saved product.'); }
-  };
-  const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
-
-  if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
-    <div className="pp-announcement"><span>MEET A MORE THOUGHTFUL WAY TO SHOP</span><a href="#pp-how">See how PayPilot works <ArrowUpRight size={13}/></a></div>
-    <header className="pp-header">
-      <div className="pp-header-inner">
-        <button className="pp-logo" onClick={()=>setSiteView('landing')} aria-label="PayPilot home"><span className="pp-logo-symbol"><Compass size={19}/></span><span>PayPilot</span></button>
-        <nav className="pp-main-nav"><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a><a href="#pp-control">Our approach</a></nav>
-        <div className="pp-header-actions">
-          {apiToken&&<button className="pp-dashboard-link" onClick={()=>setSiteView('dashboard')}>Dashboard</button>}
-          <button className="pp-login" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button>
-          <button className="pp-signup" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>
-        </div>
-      </div>
-    </header>
-    <main>
-      <section className="pp-hero pp-hero-video-layout">
-        <div className="pp-hero-inner">
-          <div className="pp-hero-copy">
-            <div className="pp-kicker"><span/> A BETTER WAY TO DECIDE</div>
-            <h1>Good purchases start with <em>good decisions.</em></h1>
-            <p>Meet the shopping assistant that helps you research what matters, compare your options and stay close to your budget.</p>
-            <div className="pp-hero-buttons">
-              <button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={17}/></button>
-              <a className="pp-text-button" href="#pp-how">See how it works <ArrowUpRight size={15}/></a>
-            </div>
-            <div className="pp-hero-assurance"><ShieldCheck size={17}/><span>No automatic purchases. Your decision always comes first.</span></div>
-          </div>
-          <div className="pp-hero-video" aria-hidden="true">
-            <video className="pp-hero-video-media" autoPlay muted loop playsInline preload="metadata" poster="https://images.pexels.com/photos/6213998/pexels-photo-6213998.jpeg?auto=compress&cs=tinysrgb&w=1800">
-              <source src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4" type="video/mp4"/>
-            </video>
-            <div className="pp-hero-video-overlay"/>
-            <div className="pp-hero-video-caption"><span>SHOP WITH MORE CLARITY</span><span>PAYPILOT AI</span></div>
-          </div>
-        </div>
-      </section>
-      <section className="pp-proofbar"><div><strong>Less guesswork.</strong><span>More useful research.</span></div><div><Search size={19}/><span>Explore options</span></div><div><Wallet size={19}/><span>Respect your budget</span></div><div><ShieldCheck size={19}/><span>Stay in control</span></div></section>
-      <section className="pp-intro-section" id="pp-shopping">
-        <div className="pp-intro-heading"><div className="pp-kicker">SHOPPING, WITH A PLAN</div><h2>From “I need this” to “I know what to choose.”</h2></div>
-        <p>Buying something online shouldn't mean opening twenty tabs, second-guessing prices or losing sight of your budget. PayPilot helps bring the important details together.</p>
-      </section>
-      <section className="pp-feature-stack">
-        <article className="pp-feature-block">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1100&q=85" alt="Wireless headphones product detail"/><div className="pp-image-label">01 — RESEARCH WITH CONTEXT</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">01 / FIND YOUR FIT</span><h3>Research that starts with what you actually need.</h3><p>Tell PayPilot what you're shopping for, what matters most and how much you want to spend. Explore AI-assisted research and the sources behind it.</p><button className="pp-inline-link" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Explore AI shopping <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block pp-feature-reverse">
-          <div className="pp-feature-image"><img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1100&q=85" alt="Laptop on a clean desk for planning and comparing purchases"/><div className="pp-image-label">02 — MAKE YOUR BUDGET WORK</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">02 / KEEP PERSPECTIVE</span><h3>A budget isn't a restriction. It's your plan.</h3><p>Set spending limits that make sense for you. Keep your budget visible while you compare products and think through the trade-offs.</p><button className="pp-inline-link" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create your account <ArrowUpRight size={16}/></button></div>
-        </article>
-        <article className="pp-feature-block">
-          <div className="pp-feature-image pp-feature-image-approval"><img src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1100&q=85" alt="Customer reviewing a purchase before completing checkout"/><div className="pp-image-label">03 — YOU MAKE THE CALL</div></div>
-          <div className="pp-feature-text"><span className="pp-feature-index">03 / STAY IN CONTROL</span><h3>Helpful recommendations. Never decisions made for you.</h3><p>PayPilot is designed to help you prepare, not take over. It does not place orders or send payments. You remain in charge of every next step.</p><a className="pp-inline-link" href="#pp-control">Our approach to control <ArrowUpRight size={16}/></a></div>
-        </article>
-      </section>
-      <section className="pp-product-band"><div className="pp-product-band-inner"><div className="pp-product-band-copy"><div className="pp-kicker">MADE TO FEEL SIMPLE</div><h2>Your shopping research.<br/><em>All in one place.</em></h2><p>Move from a question to a clearer shortlist with a focused workspace for product research, comparisons and spending preferences.</p><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Start exploring <ArrowUpRight size={16}/></button></div><div className="pp-app-preview"><div className="pp-app-top"><span><i/> PayPilot</span><span>AI SHOPPING</span></div><div className="pp-app-greeting">Let's find the right fit.</div><div className="pp-app-search"><Search size={16}/><span>Headphones for work under ₹10,000</span><ArrowUpRight size={15}/></div><div className="pp-app-meta"><span>YOUR PREFERENCES</span><span>EDIT SEARCH</span></div><div className="pp-app-chips"><i>Noise cancelling</i><i>Comfortable</i><i>Long battery</i></div><div className="pp-app-list-title"><strong>Research checklist</strong><span>Based on your search</span></div><div className="pp-app-list-row"><span className="pp-app-thumb">01</span><span><b>Compare sound quality</b><small>Features, reviews and fit</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">02</span><span><b>Check current pricing</b><small>Review retailer sources</small></span><Check size={16}/></div><div className="pp-app-list-row"><span className="pp-app-thumb">03</span><span><b>Stay within your budget</b><small>Your limit stays in view</small></span><Check size={16}/></div><div className="pp-app-disclaimer">Illustrative product interface · Not live prices or product listings</div></div></div></section>
-      <section className="pp-how-section" id="pp-how"><div className="pp-how-inner"><div className="pp-kicker">A CLEARER WAY FORWARD</div><h2>Three steps to a more confident choice.</h2><div className="pp-steps"><article><span>01</span><div><h3>Tell us what you're after.</h3><p>Share the product, your priorities and the budget you're working with.</p></div></article><article><span>02</span><div><h3>Explore the research.</h3><p>Review relevant options, useful details and available source links.</p></div></article><article><span>03</span><div><h3>Make the call yourself.</h3><p>Choose what works for you. PayPilot never completes a purchase automatically.</p></div></article></div></div></section>
-      <section className="pp-control-section" id="pp-control"><div className="pp-control-photo"><img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1000&q=80" alt="A customer making their own payment decision"/></div><div className="pp-control-copy"><div className="pp-kicker">YOUR CHOICE. YOUR CONTROL.</div><h2>Technology should support your decisions, <em>not make them.</em></h2><p>PayPilot is an AI shopping research and budgeting assistant. It is not a payment processor, and it will not check out or spend money on your behalf.</p><div className="pp-control-points"><span><Check size={16}/> You review the research</span><span><Check size={16}/> You set your budget</span><span><Check size={16}/> You make the final decision</span></div></div></section>
-      <section className="pp-bottom-cta"><div className="pp-kicker">YOUR NEXT PURCHASE STARTS HERE</div><h2>Take a moment. Make a better choice.</h2><p>Try AI shopping with no account required. Sign up when you're ready to save your preferences.</p><div><button className="pp-blue-button" onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Try PayPilot free <ArrowUpRight size={16}/></button><button className="pp-cta-secondary" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create an account</button></div></section>
-    </main>
-    <footer className="pp-footer"><div className="pp-footer-inner"><div className="pp-footer-brand"><button className="pp-logo" onClick={()=>setSiteView('landing')}><span className="pp-logo-symbol">P</span><span>PayPilot</span></button><p>Make more informed purchase decisions.</p></div><div className="pp-footer-links"><div><strong>EXPLORE</strong><a href="#pp-shopping">What you can do</a><a href="#pp-how">How it works</a></div><div><strong>YOUR ACCOUNT</strong><button onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Log in</button><button onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Get started</button>{apiToken&&<button onClick={()=>setSiteView('dashboard')}>Dashboard</button>}</div><div><strong>PAYPILOT</strong><a href="#pp-control">Our approach</a><button onClick={()=>{setPage('AI Shopping');setSiteView('guest-shopping');}}>Guest shopping</button></div></div><div className="pp-footer-bottom"><span>© 2026 PayPilot. All rights reserved.</span><span>AI-assisted research. Human-led decisions.</span></div></div></footer>
-  </div>;
-  if(siteView==='auth') return <div className={dark?'auth-page dark':'auth-page'}><button className="auth-back-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark"><Compass size={19}/></span> paypilot<span>AI</span></button><div className="auth-card"><div className="auth-mark"><Sparkles size={21}/></div><div className="public-eyebrow">{authMode==='login'?'WELCOME BACK':'GET STARTED'}</div><h1>{authMode==='login'?'Sign in to PayPilot':'Create your account'}</h1><p>{authMode==='login'?'Continue to your personal shopping and finance workspace.':'Save your preferences and manage your shopping workspace.'}</p><div className="auth-switch"><button className={authMode==='login'?'active':''} onClick={()=>{setAuthMode('login');setAuthError('');}}>Sign in</button><button className={authMode==='register'?'active':''} onClick={()=>{setAuthMode('register');setAuthError('');}}>Create account</button></div>{authMode==='register'&&<label className="auth-field">Full name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name"/></label>}<label className="auth-field">Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email"/></label><label className="auth-field">Password<input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="At least 8 characters" autoComplete={authMode==='login'?'current-password':'new-password'}/></label><button className="auth-submit" onClick={authenticate} disabled={authLoading||!email.trim()||authPassword.length<8}>{authLoading?'Please wait…':authMode==='login'?'Sign in':'Create account'}</button><div className="auth-divider"><span/>or continue with<span/></div>{googleClientId?<div className="google-button-host" ref={googleButtonRef}/>:<><button type="button" className="google-fallback-button" onClick={()=>setAuthError('Google sign-in needs a Google OAuth Web Client ID. Add VITE_GOOGLE_CLIENT_ID to the frontend and GOOGLE_CLIENT_ID to the backend environment, then redeploy.')}><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.5 13.3l7.8 6.1C12.2 13.5 17.6 9.5 24 9.5Z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.6 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1Z"/><path fill="#FBBC05" d="M10.3 28.6a14.4 14.4 0 0 1 0-9.2l-7.8-6.1a24 24 0 0 0 0 21.4l7.8-6.1Z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-7.4-5.7c-2.1 1.4-4.9 2.2-8.6 2.2-6.4 0-11.8-4-13.7-9.5l-7.8 6.1C6.5 43 14.6 48 24 48Z"/></svg>Continue with Google</button><small className="auth-config-note">Google account sign-in is ready to enable once the OAuth client ID is added.</small></>}{authError&&<div className="api-error">{authError}</div>}<small className="auth-terms">By continuing, you agree to use PayPilot responsibly. Your account details are handled securely.</small></div><button className="auth-back-link" onClick={()=>{setSiteView('guest-shopping');setPage('AI Shopping');}}>Continue as guest to AI shopping</button></div>;
-  if(siteView==='guest-shopping') return <div className={dark?'guest-page dark':'guest-page'}><header className="guest-header"><button className="public-brand" onClick={()=>setSiteView('landing')}><span className="public-brand-mark">p</span> paypilot<span>AI</span></button><div><span className="guest-label">GUEST SHOPPING</span><button className="public-link" onClick={()=>{setAuthMode('login');setSiteView('auth');}}>Sign in</button><button className="public-nav-cta" onClick={()=>{setAuthMode('register');setSiteView('auth');}}>Create account</button></div></header><main className="guest-main"><button className="guest-back" onClick={()=>setSiteView('landing')}>← Back to website</button><div className="public-eyebrow">AI SHOPPING ASSISTANT</div><h1>What are you looking for?</h1><p>Search freely as a guest. No account required.</p><div className="guest-search"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void runAiResearch();}} placeholder="e.g. laptop for coding under ₹60,000"/><button className="public-primary" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}>{aiLoading?'Researching…':'Search the web'} <Search size={16}/></button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop under ₹60,000</button><button onClick={()=>setProductSearch('Wireless headphones under ₹5,000')}>Wireless headphones</button><button onClick={()=>setProductSearch('Smartphone with good camera under ₹25,000')}>Smartphone under ₹25,000</button></div>{apiError&&<div className="api-error">{apiError}</div>}{aiResearch&&<section className="panel guest-results"><div className="panel-heading"><div><h2>Research results</h2><p>{aiResearch.provider||'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Clear</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Details are taken from the seller page where available.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified on page</span>}{item.description&&<p>{item.description}</p>}<button className="text-action save-product-action" onClick={()=>{setAuthMode('login');setSiteView('auth');}} disabled={savedProducts.some(saved=>saved.url===item.url)}>{savedProducts.some(saved=>saved.url===item.url)?<><Check size={13}/> Saved</>:<><Bookmark size={13}/> Sign in to save</>}</button><a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a></div></article>)}</div></div>}<div className="ai-research-columns"><div><h3>What to prioritize</h3>{aiResearch.result.criteria.map((item,i)=><div className="ai-research-line" key={i}><strong>{item.label}</strong><span>{item.importance}</span></div>)}</div>{aiResearch.result.options.length>0&&<div><h3>Product candidates</h3>{aiResearch.result.options.map((item,i)=><div className="ai-option" key={i}><strong>{item.product}</strong><span>{item.merchant||'Merchant not verified'} · {item.price||'Price not verified'}</span><p>{item.reason}</p><small>{item.verification}</small></div>)}</div>}</div><div className="ai-sources"><strong>Source pages</strong>{aiResearch.sources.map((source,i)=><a key={i} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div><p className="ai-safety-note">{aiResearch.result.safetyNote}</p></section>}<div className="guest-note"><ShieldCheck size={18}/><span>Guest searches are available without signing in. Sign in only when you want to save your workspace and preferences.</span></div></main></div>;
-
-  return <div className={dark?'app-shell dark':'app-shell'}>
-    {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
-    <aside className={mobileOpen?'sidebar sidebar-open':'sidebar'}>
-      <div className="brand"><div className="brand-mark"><Compass size={20}/></div><span className="brand-name">paypilot<span className="brand-ai">AI</span></span><button className="icon-button sidebar-close" onClick={()=>setMobileOpen(false)}><X size={18}/></button></div>
-      <button className="workspace-switch" onClick={()=>notify('Personal workspace selected.')}><div className="workspace-avatar">M</div><div className="workspace-copy"><strong>Personal workspace</strong><span>Free account</span></div><ChevronDown size={15} className="muted-icon"/></button>
-      <nav className="side-nav">{(['WORKSPACE','MANAGE','PREFERENCES'] as const).map(g=><div className="nav-group" key={g}><p className="nav-heading">{g}</p>{nav.filter(n=>n.group===g).map(n=>{const Icon=n.icon;return <button key={n.label} className={page===n.label?'nav-item active':'nav-item'} onClick={()=>go(n.label)}><Icon size={17}/><span>{n.label}</span>{n.label==='Approvals'&&pendingCount>0&&<span className="nav-count">{pendingCount}</span>}</button>})}</div>)}</nav>
-      <div className="sidebar-bottom"><div className="security-note"><div className="security-icon"><LockKeyhole size={15}/></div><div><strong>Your money, your rules.</strong><span>AI never pays without approval.</span></div></div><button className="nav-item help-link" onClick={()=>notify('Help center is coming soon.')}><CircleHelp size={17}/><span>Help center</span></button><div className="profile-row"><div className="profile-avatar">{(name.trim().split(/\\s+/).map(part=>part[0]).join('').slice(0,2)||'PP').toUpperCase()}</div><div className="profile-copy"><strong>{name||'Your account'}</strong><span>{email||'Personal account'}</span></div><button className="icon-button" onClick={()=>go('Settings')} aria-label="Account settings"><MoreHorizontal size={18}/></button></div><button className="nav-item signout-link" onClick={signOutApi}><LockKeyhole size={16}/><span>Sign out</span></button></div>
-    </aside>
-    <main className="main-area">
-      <header className="topbar"><div className="topbar-left"><button className="icon-button mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={20}/></button><div className="breadcrumb">Workspace <span>/</span> <strong>{page}</strong></div></div><div className="topbar-actions"><label className="search-box"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search transactions..."/></label><button className="icon-button theme-toggle" onClick={()=>setDark(!dark)} aria-label="Toggle theme">{dark?<Sun size={18}/>:<Moon size={18}/>}</button><button className="icon-button notification-button" onClick={()=>notify('You are all caught up.')} aria-label="Notifications"><Bell size={18}/><i/></button><div className="top-avatar">{(name.trim().split(/\\s+/).map(part=>part[0]).join('').slice(0,2)||'PP').toUpperCase()}</div></div></header>
-      <div className="page-content">
-      {page==='Overview'&&<><div className="page-heading"><div><div className="eyebrow">{greeting.toUpperCase()}</div><h1>Your finances, in focus.</h1><p>Here’s what’s happening with your money today.</p></div><button className="primary-button" onClick={()=>go('AI Shopping')}><Sparkles size={16}/> Explore AI shopping</button></div>
-        <section className="metric-grid"><article className="metric-card"><div className="metric-top"><span>Actual spending</span><span className="metric-icon blue"><Wallet size={17}/></span></div><div className="metric-value">{money(spentAmount)}</div><div className="metric-foot"><span className="budget-label">Verified payments only</span><span>no payment processing</span></div></article><article className="metric-card"><div className="metric-top"><span>Available budget</span><span className="metric-icon green"><ShieldCheck size={17}/></span></div><div className="metric-value">{money(availableBudget)}</div><div className="metric-foot"><span className="budget-label">{budgetUsed.toFixed(1)}% committed</span><span>of {money(monthlyBudget)}</span></div><div className="progress-track"><span style={{width:budgetUsed+'%'}}/></div></article><article className="metric-card"><div className="metric-top"><span>Pending approvals</span><span className="metric-icon orange"><Clock3 size={17}/></span></div><div className="metric-value">{String(pendingCount).padStart(2,'0')}</div><div className="metric-foot"><span className="pending-label">Needs your attention</span><button className="text-action" onClick={()=>go('Approvals')}>Review <ArrowUpRight size={13}/></button></div></article><article className="metric-card"><div className="metric-top"><span>Saved products</span><span className="metric-icon violet"><Sparkles size={17}/></span></div><div className="metric-value">{savedProducts.length}</div><div className="metric-foot"><span className="budget-label">Saved to your account</span></div></article></section>
-        <section className="content-grid"><article className="panel spending-panel"><div className="panel-heading"><div><h2>Budget commitments</h2><p>Approved requests are reserved in your budget; no payment is processed.</p></div><select className="select-button" value={range} onChange={e=>setRange(e.target.value)}><option>This week</option><option>This month</option><option>Last 30 days</option></select></div><div className="chart-legend"><span className="legend-dot"/> Approved purchase requests <strong>{money(committedAmount)}</strong></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={spendingChart} margin={{top:8,right:4,left:-20,bottom:0}}><defs><linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3978ee" stopOpacity={.18}/><stop offset="100%" stopColor="#3978ee" stopOpacity={.01}/></linearGradient></defs><CartesianGrid strokeDasharray="3 5" vertical={false} stroke="var(--chart-grid)"/><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} dy={10}/><YAxis axisLine={false} tickLine={false} tick={{fill:'var(--muted)',fontSize:11}} tickFormatter={v=>'₹'+v}/><Tooltip contentStyle={{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:10,fontSize:12}} formatter={(v)=>['₹'+v,'Spent']}/><Area type="monotone" dataKey="amount" stroke="#3978ee" strokeWidth={2.5} fill="url(#spendFill)"/></AreaChart></ResponsiveContainer></div></article>
-        <article className="panel permission-panel"><div className="panel-heading"><div><h2>Permission center</h2><p>Your AI boundaries at a glance</p></div><span className="live-pill"><i/> ACTIVE</span></div><div className="permission-hero"><div className="permission-shield"><ShieldCheck size={22}/></div><div><strong>You’re in control</strong><span>PayPilot follows your rules.</span></div></div><div className="permission-row"><span>All-purchase limit</span><strong>{money(rules.find(r=>r.enabled&&r.category==='all')?.limit||0)}</strong></div><div className="permission-row"><span>Auto-purchase</span><span className="status-off">Disabled</span></div><div className="permission-row"><span>Human approval</span><span className="status-on"><Check size={13}/> Required</span></div><button className="secondary-button full-button" onClick={()=>go('Spending rules')}>Manage spending rules <ArrowUpRight size={14}/></button></article></section>
-        <section className="panel transactions-panel"><div className="panel-heading"><div><h2>Recent activity</h2><p>A clear view of your latest transactions</p></div><button className="text-action view-all" onClick={()=>go('Activity')}>View all activity <ArrowUpRight size={14}/></button></div>{transactionRows(tx.slice(0,4))}</section><div className="demo-footnote"><ShieldCheck size={14}/> No real payments are processed by PayPilot. Approved requests are not completed transactions.</div></>}
-      {page==='AI Shopping'&&<><div className="page-heading"><div><div className="eyebrow">SHOPPING ASSISTANT</div><h1>Let AI do the research.</h1><p>Compare options, uncover better prices, and stay within your budget.</p></div><span className="live-pill"><i/> WEB RESEARCH</span></div><section className="ai-search-panel panel"><div className="ai-orb"><Sparkles size={22}/></div><div className="ai-search-content"><h2>What are you looking for?</h2><p>Tell PayPilot what you need. We’ll help you compare before you buy.</p><div className="ai-input-row"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="e.g. noise cancelling headphones under ₹10,000"/><button className="primary-button" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}><Sparkles size={15}/>{aiLoading?'Searching…':'Search the web'}</button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop for coding</button><button onClick={()=>setProductSearch('Wireless headphones')}>Wireless headphones</button><button onClick={()=>setProductSearch('Ergonomic keyboard')}>Ergonomic keyboard</button></div></div></section>{aiResearch&&<section className="panel ai-research-results"><div className="panel-heading"><div><h2>AI research brief</h2><p>{aiResearch.provider || 'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Dismiss</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Seller-page details where accessible. Open a listing to confirm the current offer.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Seller image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified</span>}{item.description&&<p>{item.description}</p>}<button className="text-action save-product-action" onClick={()=>void saveProduct(item)} disabled={savedProducts.some(saved=>saved.url===item.url)}>{savedProducts.some(saved=>saved.url===item.url)?<><Check size={13}/> Saved</>:<><Bookmark size={13}/> Save product</>}</button><a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a></div></article>)}</div></div>}<div className="ai-research-columns"><div><h3>What to prioritize</h3>{aiResearch.result.criteria.map((item,i)=><div className="ai-research-line" key={i}><strong>{item.label}</strong><span>{item.importance}</span></div>)}</div>{aiResearch.result.options.length>0&&<div><h3>Product candidates</h3>{aiResearch.result.options.map((item,i)=><div className="ai-option" key={i}><strong>{item.product}</strong><span>{item.merchant||'Merchant not verified'} · {item.price||'Price not verified'}</span><p>{item.reason}</p><small>{item.verification}</small></div>)}</div>}</div>{aiResearch.result.questions.length>0&&<div className="ai-research-questions"><strong>Questions to refine your search</strong>{aiResearch.result.questions.map((q,i)=><span key={i}>• {q}</span>)}</div>}<p className="ai-safety-note">{aiResearch.result.safetyNote}</p><div className="ai-sources"><strong>Sources</strong>{aiResearch.sources.map((source,i)=><a key={i} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div><small className="ai-safety-note">{aiResearch.note}</small></section>}{apiError&&<div className="api-error">{apiError}</div>}<div className="safety-banner"><ShieldCheck size={18}/><div><strong>You stay in control</strong><span>PayPilot can research and prepare a purchase. Only you can authorize a payment.</span></div></div></>}
-      {page==='Saved products'&&<><div className="page-heading"><div><div className="eyebrow">YOUR SHORTLIST</div><h1>Saved products</h1><p>Products you've kept for later comparison.</p></div><span className="live-pill"><i/> {savedProducts.length} SAVED</span></div><section className="ai-visual-products"><div className="ai-product-grid">{savedProducts.map(item=><article className="ai-product-card" key={item.id}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified</span>}{item.description&&<p>{item.description}</p>}<div className="saved-product-actions"><a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View seller page <ExternalLink size={13}/></a><button className="text-action" onClick={()=>void removeSavedProduct(item.id)}>Remove</button></div></div></article>)}</div>{savedProducts.length===0&&<div className="empty-state"><Bookmark size={25}/><strong>No saved products yet</strong><span>Run an AI shopping search and save products to compare them later.</span><button className="secondary-button" onClick={()=>go('AI Shopping')}>Explore products</button></div>}</section></>}
+      {page==='AI Shopping'&&<><div className="page-heading"><div><div className="eyebrow">SHOPPING ASSISTANT</div><h1>Let AI do the research.</h1><p>Compare options, uncover better prices, and stay within your budget.</p></div><span className="live-pill"><i/> WEB RESEARCH</span></div><section className="ai-search-panel panel"><div className="ai-orb"><Sparkles size={22}/></div><div className="ai-search-content"><h2>What are you looking for?</h2><p>Tell PayPilot what you need. We’ll help you compare before you buy.</p><div className="ai-input-row"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="e.g. noise cancelling headphones under ₹10,000"/><button className="primary-button" onClick={()=>void runAiResearch()} disabled={aiLoading||!productSearch.trim()}><Sparkles size={15}/>{aiLoading?'Searching…':'Search the web'}</button></div><div className="suggestion-chips"><button onClick={()=>setProductSearch('Laptop for coding under ₹60,000')}>Laptop for coding</button><button onClick={()=>setProductSearch('Wireless headphones')}>Wireless headphones</button><button onClick={()=>setProductSearch('Ergonomic keyboard')}>Ergonomic keyboard</button></div></div></section>{aiResearch&&<section className="panel ai-research-results"><div className="panel-heading"><div><h2>AI research brief</h2><p>{aiResearch.provider || 'Web research'}</p></div><button className="text-action" onClick={()=>setAiResearch(null)}>Dismiss</button></div><p className="ai-research-summary">{aiResearch.result.summary}</p>{aiResearch.products&&aiResearch.products.length>0&&<div className="ai-visual-products"><div className="ai-products-heading"><div><h3>Products found on shopping sites</h3><p>Seller-page details where accessible. Open a listing to confirm the current offer.</p></div><span>{aiResearch.products.length} results</span></div><div className="ai-product-grid">{aiResearch.products.map(item=><article className="ai-product-card" key={item.url}><a className="ai-product-image" href={item.url} target="_blank" rel="noreferrer">{item.image?<img src={item.image} alt={item.title} loading="lazy"/>:<div className="ai-product-image-placeholder"><ShoppingBag size={32}/><span>Seller image unavailable</span></div>}</a><div className="ai-product-card-body"><span className="ai-product-merchant">{item.merchant}</span><h4>{item.title}</h4>{item.price?<strong className="ai-product-price">{item.price}</strong>:<span className="ai-price-unavailable">Price not verified</span>}{item.description&&<p>{item.description}</p>}<a className="ai-product-view-link" href={item.url} target="_blank" rel="noreferrer">View on seller website <ExternalLink size={13}/></a></div></article>)}</div></div>}<div className="ai-research-columns"><div><h3>What to prioritize</h3>{aiResearch.result.criteria.map((item,i)=><div className="ai-research-line" key={i}><strong>{item.label}</strong><span>{item.importance}</span></div>)}</div>{aiResearch.result.options.length>0&&<div><h3>Product candidates</h3>{aiResearch.result.options.map((item,i)=><div className="ai-option" key={i}><strong>{item.product}</strong><span>{item.merchant||'Merchant not verified'} · {item.price||'Price not verified'}</span><p>{item.reason}</p><small>{item.verification}</small></div>)}</div>}</div>{aiResearch.result.questions.length>0&&<div className="ai-research-questions"><strong>Questions to refine your search</strong>{aiResearch.result.questions.map((q,i)=><span key={i}>• {q}</span>)}</div>}<p className="ai-safety-note">{aiResearch.result.safetyNote}</p><div className="ai-sources"><strong>Sources</strong>{aiResearch.sources.map((source,i)=><a key={i} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div><small className="ai-safety-note">{aiResearch.note}</small></section>}{apiError&&<div className="api-error">{apiError}</div>}<div className="safety-banner"><ShieldCheck size={18}/><div><strong>You stay in control</strong><span>PayPilot can research and prepare a purchase. Only you can authorize a payment.</span></div></div></>}
       {page==='Approvals'&&<><div className="page-heading"><div><div className="eyebrow">HUMAN-IN-THE-LOOP PAYMENTS</div><h1>Approvals</h1><p>Review every purchase before money moves.</p></div><span className="live-pill"><i/> {pendingCount} NEEDS REVIEW</span></div><div className="approval-summary"><div className="approval-stat"><span>Waiting for you</span><strong>{pendingCount}</strong></div><div className="approval-stat"><span>Approved this month</span><strong>{requests.filter(a=>a.status==='approved').length}</strong></div><div className="approval-stat"><span>Declined this month</span><strong>{requests.filter(a=>a.status==='declined').length}</strong></div></div><section className="panel approvals-panel"><div className="panel-heading"><div><h2>Purchase requests</h2><p>AI-prepared purchases that need your decision</p></div><span className="status-badge pending"><i/> Action required</span></div>{requests.filter(a=>a.status==='pending').map(a=><div className="approval-item" key={a.id}><div className={'merchant-logo '+a.tone}>{a.icon}</div><div className="approval-item-copy"><strong>{a.name}</strong><span>{a.detail}</span><small>Requested just now · {a.kind}</small></div><div className="approval-item-price">{money(a.amount)}<span>One-time / recurring</span></div><button className="secondary-button" onClick={()=>setModal({type:'approval',id:a.id})}>Review request</button></div>)}{pendingCount===0&&<div className="empty-state"><ShieldCheck size={25}/><strong>All caught up</strong><span>There are no demo requests waiting for approval.</span></div>}</section><div className="safety-banner"><LockKeyhole size={18}/><div><strong>Approval is always yours</strong><span>Approving here only changes this demo workspace. It never triggers a real payment.</span></div></div></>}
       {page==='Activity'&&<><div className="page-heading"><div><div className="eyebrow">ACCOUNT HISTORY</div><h1>Activity</h1><p>Every transaction, in one place.</p></div><button className="secondary-button" onClick={()=>notify('Your demo activity export is being prepared.')}><ExternalLink size={14}/> Export activity</button></div><section className="panel transactions-panel"><div className="activity-toolbar"><div><h2>All transactions</h2><p>{filteredTx.length} records in this demo account</p></div><div className="filter-controls"><select className="select-button" value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option><option>Completed</option><option>Pending</option><option>Approved</option><option>Declined</option></select><button className="select-button" onClick={()=>{setQuery('');setFilter('All')}}><RefreshCw size={13}/> Reset</button></div></div>{transactionRows(filteredTx)}</section></>}
       {page==='Spending rules'&&<><div className="page-heading"><div><div className="eyebrow">YOUR PERMISSION ENGINE</div><h1>Spending rules</h1><p>Set boundaries for what your AI assistant can prepare.</p></div><button className="primary-button" onClick={()=>setModal({type:'rule'})}><Plus size={16}/> Create a rule</button></div><div className="rules-intro panel"><div className="rules-intro-icon"><ShieldCheck size={22}/></div><div><strong>Guardrails before checkout</strong><span>Rules are checked before any purchase request reaches your approval queue. Auto-purchase is off by default.</span></div><span className="live-pill"><i/> PROTECTED</span></div><div className="rules-list">{rules.map(r=><article className="rule-card panel" key={r.id}><div className="rule-main"><div className="rule-icon"><SlidersHorizontal size={18}/></div><div className="rule-copy"><strong>{r.name}</strong><span>{r.description}</span></div><span className={r.enabled?'rule-state enabled':'rule-state'}>{r.enabled?'Active':'Paused'}</span><button className={r.enabled?'toggle-switch on':'toggle-switch'} onClick={()=>void toggleRule(r.id)} aria-label={'Toggle '+r.name}><i/></button></div><div className="rule-usage"><div><span>Used {money(r.spent)} of {money(r.limit)}</span><strong>{r.limit?Math.round(r.spent/r.limit*100):0}%</strong></div><div className="progress-track"><span style={{width:Math.min(100,r.limit?r.spent/r.limit*100:0)+'%'}}/></div></div></article>)}</div><p className="demo-footnote"><LockKeyhole size={14}/> These are simulated permission settings. No financial account is connected.</p></>}
@@ -1027,6 +261,9 @@ const App = () => {
     </main>
     {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><div className="approval-modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" onClick={()=>setModal(null)}><X size={18}/></button>
       {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{activeApproval?.name || 'Purchase request'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(activeApproval?.amount || 0)}</div><div className="modal-detail"><span>Merchant</span><strong>{activeApproval?.merchant || 'Merchant'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>PayPal · Demo connection</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15}/> Simulated request only. No payment will be sent.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>void decline(String(modal.id||''))}>Decline</button><button className="primary-button" onClick={()=>void approve(String(modal.id||''))}>Approve request</button></div></>}
+      {modal.type==='product'&&<><div className="eyebrow">PRODUCT COMPARISON</div><div className="product-modal-visual">{currentProduct.icon}</div><h2>{currentProduct.name}</h2><p className="modal-subtitle">A demo listing selected from your shopping search.</p><div className="approval-amount">{money(currentProduct.price)}</div><div className="modal-detail"><span>Merchant</span><strong>{currentProduct.merchant}</strong></div><div className="modal-detail"><span>Rating</span><strong>★ {currentProduct.rating}/5</strong></div><div className="modal-detail"><span>Price difference</span><strong className="status-on">Save {money(currentProduct.saving)}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> No purchase is made. Add to saved items to compare later.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>toggleSaved(currentProduct.id)}>{savedProducts.includes(currentProduct.id)?'Remove saved':'Save item'}</button><button className="primary-button" onClick={requestProductApproval}>Request approval</button></div></>}
+      {modal.type==='rule'&&<><div className="modal-icon"><SlidersHorizontal size={22}/></div><div className="eyebrow">CUSTOM PERMISSION</div><h2>Create a spending rule</h2><p className="modal-subtitle">Define a boundary for your AI shopping assistant.</p><label className="field-label">Rule name<input value={newRule.name} onChange={e=>setNewRule(v=>({...v,name:e.target.value}))} placeholder="e.g. Electronics purchases"/></label><label className="field-label">Description<input value={newRule.description} onChange={e=>setNewRule(v=>({...v,description:e.target.value}))} placeholder="What does this rule cover?"/></label><label className="field-label">Category<select value={newRule.category} onChange={e=>setNewRule(v=>({...v,category:e.target.value}))}><option value="all">All purchases</option><option value="Electronics">Electronics</option><option value="Software">Software</option><option value="Books & learning">Books & learning</option><option value="Travel">Travel</option></select></label><label className="field-label">Spending limit (INR)<input type="number" value={newRule.limit} onChange={e=>setNewRule(v=>({...v,limit:e.target.value}))}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" onClick={()=>void addRule()}>Create rule</button></div></>}
+    </div></div>}
     {notice&&<div className="toast"><Check size={16}/>{notice}</div>}
   </div>;
 };
