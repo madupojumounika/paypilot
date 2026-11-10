@@ -66,8 +66,8 @@ const App = () => {
   const [filter,setFilter] = useState('All');
   const [connected,setConnected] = usePersistentState<string[]>('paypilot:connected',['PayPal']);
   const [budget,setBudget] = usePersistentState('paypilot:budget','40000');
-  const [name,setName] = usePersistentState('paypilot:name','Mounika Madupoju');
-  const [email,setEmail] = usePersistentState('paypilot:email','mounika@example.com');
+  const [name,setName] = usePersistentState('paypilot:name','');
+  const [email,setEmail] = usePersistentState('paypilot:email','');
   const [apiToken,setApiToken] = usePersistentState('paypilot:api-token','');
   const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>(apiToken?'dashboard':'landing');
   const [authError,setAuthError] = useState('');
