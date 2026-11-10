@@ -4,7 +4,7 @@ import {
   CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
   ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
   Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw, Filter, Trash2,
-  CircleDollarSign, ReceiptText, Link2, ChevronRight, Command, LogOut
+  Link2, ChevronRight
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
