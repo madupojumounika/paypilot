@@ -143,7 +143,7 @@ const App = () => {
       </div>
     </header>
     <main>
-      <section className="pp-hero">
+      <section className="pp-hero pp-hero-video-layout">
         <div className="pp-hero-inner">
           <div className="pp-hero-copy">
             <div className="pp-kicker"><span/> A BETTER WAY TO DECIDE</div>
@@ -155,20 +155,12 @@ const App = () => {
             </div>
             <div className="pp-hero-assurance"><ShieldCheck size={17}/><span>No automatic purchases. Your decision always comes first.</span></div>
           </div>
-          <div className="pp-hero-visual">
-            <img className="pp-hero-photo" src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1400&q=85" alt="Customer making a considered purchase at a retail checkout"/>
-            <div className="pp-photo-wash"/>
-            <div className="pp-research-card">
-              <div className="pp-card-top"><span className="pp-card-brand"><i/> PAYPILOT RESEARCH</span><span className="pp-card-status">YOUR SHOPPING BRIEF</span></div>
-              <div className="pp-card-query"><span>YOU'RE LOOKING FOR</span><strong>Wireless headphones</strong><small>Over-ear · Noise cancelling · Under ₹10,000</small></div>
-              <div className="pp-card-divider"/>
-              <div className="pp-card-result-head"><strong>What matters to you</strong><span>3 priorities</span></div>
-              <div className="pp-card-priority"><span>01</span><div><strong>Sound & comfort</strong><small>For everyday listening</small></div><Check size={16}/></div>
-              <div className="pp-card-priority"><span>02</span><div><strong>Value for money</strong><small>Compare features and price</small></div><Check size={16}/></div>
-              <div className="pp-card-priority"><span>03</span><div><strong>Your budget</strong><small>Keep your limit in view</small></div><Check size={16}/></div>
-              <div className="pp-card-footer"><LockKeyhole size={13}/> Research first. You choose what happens next.</div>
-            </div>
-            <div className="pp-image-caption"><span>SHOP WITH MORE CLARITY</span><span>01 / 03</span></div>
+          <div className="pp-hero-video" aria-hidden="true">
+            <video className="pp-hero-video-media" autoPlay muted loop playsInline preload="metadata" poster="https://images.pexels.com/photos/6213998/pexels-photo-6213998.jpeg?auto=compress&cs=tinysrgb&w=1800">
+              <source src="https://videos.pexels.com/video-files/8937981/8937981-hd_1920_1080_30fps.mp4" type="video/mp4"/>
+            </video>
+            <div className="pp-hero-video-overlay"/>
+            <div className="pp-hero-video-caption"><span>SHOP WITH MORE CLARITY</span><span>PAYPILOT AI</span></div>
           </div>
         </div>
       </section>
