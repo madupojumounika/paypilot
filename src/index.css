@@ -510,3 +510,11 @@
 .public-brand-mark{border-radius:9px;background:#173b70}
 .google-fallback-button{border-radius:5px}
 @media(max-width:900px){.app-shell .sidebar{background:#fbfcfe}}
+
+.saved-product-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.save-product-action{display:inline-flex;align-items:center;gap:6px;margin:8px 0;color:#315f9d}
+.save-product-action:disabled{opacity:.65;cursor:default}
+.saved-product-actions .ai-product-view-link{margin:0}
+.workspace-switch{min-width:0}
+.workspace-copy{min-width:0;flex:1}
+.workspace-copy strong,.workspace-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
