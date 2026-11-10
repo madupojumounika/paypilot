@@ -45,7 +45,7 @@ router.post('/google', async (req, res, next) => {
     const email = String(claims.email).trim().toLowerCase();
     let user = await User.findOne({ $or: [{ googleId: claims.sub }, { email }] }).select('+passwordHash');
     if (user && user.googleId && user.googleId !== claims.sub) return res.status(409).json({ error: 'This email is linked to a different Google account.' });
-    if (user && !user.googleId && user.passwordHash) return res.status(409).json({ error: 'An email/password account already exists. Sign in with your password first, then connect Google from account settings.' });
+    if (user && !user.googleId && user.passwordHash) return res.status(409).json({ error: 'An account with this email already exists. Sign in using the method you used to create it.' });
     if (!user) {
       user = await User.create({
         name: String(claims.name || claims.given_name || email.split('@')[0]).slice(0, 80),
