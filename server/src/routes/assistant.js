@@ -59,6 +59,7 @@ function readStructuredProduct(html) {
 function isProductPageUrl(url) {
   try {
     const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.replace(/^www\./, '');
     const path = parsed.pathname.toLowerCase();
     if (host === 'amazon.in') return /\/(?:dp|gp\/product)\//.test(path);
@@ -123,7 +124,8 @@ async function enrichShoppingPages(searchResults) {
         product.price = currency.toUpperCase() === 'INR' ? '₹' + formatted : currency.toUpperCase() + ' ' + formatted;
       }
     } catch {
-      // Keep the seller search result; never invent page metadata when a merchant blocks fetching.
+      // Keep only specific product URLs when a merchant blocks fetching.
+      return isProductPageUrl(item.url) ? product : null;
     }
     return product;
   }));
