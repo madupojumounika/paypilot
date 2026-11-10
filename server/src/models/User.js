@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 80 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  passwordHash: { type: String, required: true, select: false },
+  passwordHash: { type: String, required: false, select: false },
+  googleId: { type: String, unique: true, sparse: true },
+  picture: { type: String },
   monthlyBudget: { type: Number, default: 40000, min: 0 },
 }, { timestamps: true });
 
