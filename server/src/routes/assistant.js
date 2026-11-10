@@ -56,6 +56,18 @@ function readStructuredProduct(html) {
   return null;
 }
 
+function isProductPageUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    const path = parsed.pathname.toLowerCase();
+    if (host === 'amazon.in') return /\/(?:dp|gp\/product)\//.test(path);
+    if (host === 'flipkart.com') return /\/p\/[a-z0-9]/.test(path);
+    if (['croma.com','reliancedigital.in','vijaysales.com'].includes(host)) return /\/(?:p|product|products)\//.test(path);
+    return /\/(?:p|product|products)\//.test(path) || /\/[a-z0-9-]+-\d{4,}(?:\.html?)?$/.test(path);
+  } catch { return false; }
+}
+
 function merchantName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
@@ -69,9 +81,9 @@ async function enrichShoppingPages(searchResults) {
       const host = new URL(item.url).hostname.replace(/^www\./, '');
       return ['amazon.in','flipkart.com','croma.com','reliancedigital.in','vijaysales.com','lenovo.com','hp.com','dell.com','asus.com','acer.com'].includes(host);
     } catch { return false; }
-  }).slice(0, 6);
+  }).slice(0, 10);
 
-  return Promise.all(candidates.map(async item => {
+  const enriched = await Promise.all(candidates.map(async item => {
     const fallbackTitle = item.title || 'Product listing';
     const product = {
       title: fallbackTitle,
@@ -88,25 +100,34 @@ async function enrichShoppingPages(searchResults) {
       });
       if (!response.ok) return product;
       const html = (await response.text()).slice(0, 1200000);
+      const structured = readStructuredProduct(html);
       const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
       const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image');
       const description = metaContent(html, 'og:description') || metaContent(html, 'description');
-      const structured = readStructuredProduct(html);
-      const resolvedTitle = title || structured?.title;
-      const resolvedImage = image || structured?.image;
-      const resolvedDescription = description || structured?.description;
-      const resolvedPrice = price || structured?.price;
+      const price = metaContent(html, 'product:price:amount') || metaContent(html, 'og:price:amount') || structured?.price;
+      const currency = metaContent(html, 'product:price:currency') || structured?.currency || 'INR';
+      const isStructuredProduct = Boolean(structured?.title);
+      const isOpenGraphProduct = metaContent(html, 'og:type').toLowerCase() === 'product';
+      if (!isProductPageUrl(item.url) && !isStructuredProduct && !isOpenGraphProduct) return null;
+      const resolvedTitle = structured?.title || title;
+      const resolvedImage = structured?.image || image;
+      const resolvedDescription = structured?.description || description;
       if (resolvedTitle) product.title = decodeHtml(resolvedTitle.replace(/<[^>]+>/g, '')).slice(0, 220);
       if (resolvedImage) {
         try { const imageUrl = new URL(resolvedImage, item.url); if (imageUrl.protocol === 'https:') product.image = imageUrl.href; } catch {}
       }
       if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
-      if (resolvedPrice && /^[\d,.]+$/.test(String(resolvedPrice).trim())) product.price = '₹' + Number(String(resolvedPrice).replace(/,/g, '')).toLocaleString('en-IN');
+      const numericPrice = String(price ?? '').replace(/[^\d.]/g, '');
+      if (numericPrice && /^\d+(?:\.\d+)?$/.test(numericPrice) && Number(numericPrice) > 0) {
+        const formatted = Number(numericPrice).toLocaleString('en-IN');
+        product.price = currency.toUpperCase() === 'INR' ? '₹' + formatted : currency.toUpperCase() + ' ' + formatted;
+      }
     } catch {
       // Keep the seller search result; never invent page metadata when a merchant blocks fetching.
     }
     return product;
   }));
+  return enriched.filter(Boolean);
 }
 
 function buildSearchFallback(query, searchResults, budget) {
