@@ -28,12 +28,6 @@ const nav = [
 ];
 const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
-const products = [
-  {id:1,name:'Sony WH-CH720N',category:'Electronics',price:7490,old:9990,rating:'4.4',merchant:'Amazon',tag:'Best value',saving:2500,icon:'🎧',keywords:'wireless headphones noise cancelling audio'},
-  {id:2,name:'Logitech MX Master 3S',category:'Electronics',price:8495,old:10995,rating:'4.7',merchant:'Flipkart',tag:'Top rated',saving:2500,icon:'🖱️',keywords:'mouse ergonomic productivity computer'},
-  {id:3,name:'Kindle Paperwhite',category:'Books & learning',price:13999,old:15999,rating:'4.6',merchant:'Amazon',tag:'Popular',saving:2000,icon:'📖',keywords:'ebook reader kindle books reading'},
-  {id:4,name:'OnePlus Nord Buds 3',category:'Electronics',price:2299,old:2799,rating:'4.3',merchant:'Amazon',tag:'Budget pick',saving:500,icon:'🎧',keywords:'wireless headphones earbuds audio'},
-];
 const App = () => {
   const [page,setPage] = useState<Page>('Overview');
   const [dark,setDark] = usePersistentState('paypilot:dark',false);
@@ -43,7 +37,7 @@ const App = () => {
   const [tx,setTx] = useState<Tx[]>([]);
   const [rules,setRules] = useState<Rule[]>([]);
   const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'product'|'rule'|'connect';id?:string|number}|null>(null);
+  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect';id?:string|number}|null>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
   const [connected] = useState<string[]>([]);
@@ -124,7 +118,6 @@ const App = () => {
 
   const go = (p:Page) => {setPage(p);setMobileOpen(false);};
   const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-  const currentProduct = products[0];
   const monthlyBudget = Math.max(0,Number(budget)||0);
   const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
   const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
@@ -182,14 +175,6 @@ const App = () => {
       setNewRule({name:'',limit:'5000',description:'',category:'all'});setModal(null);notify('Spending rule saved to your account.');
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not create spending rule.'); }
   };
-  const requestProductApproval = async () => {
-    const amount=currentProduct.price;
-    try {
-      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:currentProduct.merchant,item:currentProduct.name,category:currentProduct.category,amount})});
-      await refreshWorkspace();setModal(null);go('Approvals');notify('Purchase request added. No payment was made.');
-    } catch(error) { setModal(null);setApiError(error instanceof Error?error.message:'Could not create purchase request.'); }
-  };
-  const toggleSaved = (id:number) => setSavedProducts(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
   const transactionRows = (rows:Tx[]) => <div className="transaction-table"><div className="transaction-head"><span>MERCHANT</span><span>DATE</span><span>AMOUNT</span><span>STATUS</span><span/></div>{rows.map(t=><div className="transaction-row" key={t.id}><div className="merchant-cell"><div className={'merchant-logo '+t.tone}>{t.initials}</div><div><strong>{t.name}</strong><span>{t.detail}</span></div></div><span className="date-cell">{new Date(t.date).toLocaleString()}</span><strong className="amount-cell">{t.status==='Completed'?'− ':' '}{money(t.amount)}</strong><span className={'status-badge '+(t.status==='Completed'?'complete':t.status==='Pending'?'pending':t.status==='Approved'?'approved':'declined')}><i/>{t.status}</span><button className="row-more" onClick={()=>notify('Transaction details are in demo mode.')}><MoreHorizontal size={17}/></button></div>)}{rows.length===0&&<div className="empty-search">No transactions match your search.</div>}</div>;
 
   if(siteView==='landing') return <div className={dark?'public-site paypal-style dark':'public-site paypal-style'}>
@@ -283,7 +268,6 @@ const App = () => {
     </main>
     {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><div className="approval-modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" onClick={()=>setModal(null)}><X size={18}/></button>
       {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{activeApproval?.name || 'Purchase request'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(activeApproval?.amount || 0)}</div><div className="modal-detail"><span>Merchant</span><strong>{activeApproval?.merchant || 'Merchant'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>PayPal · Demo connection</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> Within your rules</span></div><div className="modal-warning"><LockKeyhole size={15}/> Simulated request only. No payment will be sent.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>void decline(String(modal.id||''))}>Decline</button><button className="primary-button" onClick={()=>void approve(String(modal.id||''))}>Approve request</button></div></>}
-      {modal.type==='product'&&<><div className="eyebrow">PRODUCT COMPARISON</div><div className="product-modal-visual">{currentProduct.icon}</div><h2>{currentProduct.name}</h2><p className="modal-subtitle">A demo listing selected from your shopping search.</p><div className="approval-amount">{money(currentProduct.price)}</div><div className="modal-detail"><span>Merchant</span><strong>{currentProduct.merchant}</strong></div><div className="modal-detail"><span>Rating</span><strong>★ {currentProduct.rating}/5</strong></div><div className="modal-detail"><span>Price difference</span><strong className="status-on">Save {money(currentProduct.saving)}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> No purchase is made. Add to saved items to compare later.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>toggleSaved(currentProduct.id)}>{savedProducts.includes(currentProduct.id)?'Remove saved':'Save item'}</button><button className="primary-button" onClick={requestProductApproval}>Request approval</button></div></>}
       {modal.type==='rule'&&<><div className="modal-icon"><SlidersHorizontal size={22}/></div><div className="eyebrow">CUSTOM PERMISSION</div><h2>Create a spending rule</h2><p className="modal-subtitle">Define a boundary for your AI shopping assistant.</p><label className="field-label">Rule name<input value={newRule.name} onChange={e=>setNewRule(v=>({...v,name:e.target.value}))} placeholder="e.g. Electronics purchases"/></label><label className="field-label">Description<input value={newRule.description} onChange={e=>setNewRule(v=>({...v,description:e.target.value}))} placeholder="What does this rule cover?"/></label><label className="field-label">Category<select value={newRule.category} onChange={e=>setNewRule(v=>({...v,category:e.target.value}))}><option value="all">All purchases</option><option value="Electronics">Electronics</option><option value="Software">Software</option><option value="Books & learning">Books & learning</option><option value="Travel">Travel</option></select></label><label className="field-label">Spending limit (INR)<input type="number" value={newRule.limit} onChange={e=>setNewRule(v=>({...v,limit:e.target.value}))}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" onClick={()=>void addRule()}>Create rule</button></div></>}
     </div></div>}
     {notice&&<div className="toast"><Check size={16}/>{notice}</div>}
