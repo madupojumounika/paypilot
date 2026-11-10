@@ -156,7 +156,7 @@ async function fillMissingProductImages(products) {
         extract_depth: 'basic',
         include_images: true,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) return products;
     const payload = await response.json();
@@ -197,7 +197,7 @@ async function enrichShoppingPages(searchResults) {
         && isProductPageUrl(item.url)
         && !looksLikeCategoryResult(item);
     } catch { return false; }
-  }).slice(0, 10);
+  }).slice(0, 6);
 
   const enriched = await Promise.all(candidates.map(async item => {
     const fallbackTitle = item.title || 'Product listing';
@@ -212,7 +212,7 @@ async function enrichShoppingPages(searchResults) {
     try {
       const response = await fetch(item.url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PayPilotResearch/1.0)', 'Accept': 'text/html,application/xhtml+xml' },
-        signal: AbortSignal.timeout(6500),
+        signal: AbortSignal.timeout(5500),
       });
       if (!response.ok) return isProductPageUrl(item.url) ? product : null;
       const html = (await response.text()).slice(0, 1200000);
@@ -293,7 +293,7 @@ router.post('/plan', async (req, res) => {
         include_answer: false,
         include_raw_content: false,
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(18000),
     });
     const searchPayload = await searchResponse.json();
     if (!searchResponse.ok) {
@@ -323,52 +323,65 @@ router.post('/plan', async (req, res) => {
       'User request: ' + query,
     ].join('\n');
 
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + OPENROUTER_API_KEY,
-        'Content-Type': 'application/json',
-        'X-Title': 'PayPilot AI',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || 'openrouter/free',
-        messages: [
-          { role: 'system', content: 'You produce cautious, evidence-based shopping research. Never fabricate commercial facts.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 1400,
-      }),
-      signal: AbortSignal.timeout(30000),
+    // Enrich seller pages while the free AI provider is working. If AI is slow or unavailable,
+    // the verified seller data can still be returned as a useful source-based result.
+    const productWork = (async () => {
+      const products = await enrichShoppingPages(searchResults);
+      return (await fillMissingProductImages(products)).filter(product => Boolean(product.image));
+    })().catch(error => {
+      console.warn('Seller page enrichment was incomplete:', error.message);
+      return [];
     });
-    const aiPayload = await aiResponse.json();
-    if (!aiResponse.ok) {
-      console.error('OpenRouter request failed:', aiPayload);
-      const status = aiResponse.status === 429 ? 429 : 502;
-      return res.status(status).json({ error: aiResponse.status === 429 ? 'The free AI model is rate-limited. Try again later.' : 'Free AI model request failed. Check the OpenRouter key and selected free model.' });
+
+    let raw = '';
+    let usedFallback = false;
+    let result;
+    try {
+      const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + OPENROUTER_API_KEY,
+          'Content-Type': 'application/json',
+          'X-Title': 'PayPilot AI',
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_MODEL || 'openrouter/free',
+          messages: [
+            { role: 'system', content: 'You produce cautious, evidence-based shopping research. Never fabricate commercial facts.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 1400,
+        }),
+        signal: AbortSignal.timeout(18000),
+      });
+      const aiPayload = await aiResponse.json();
+      if (!aiResponse.ok) {
+        const providerMessage = aiPayload?.error?.message || 'HTTP ' + aiResponse.status;
+        throw new Error('OpenRouter returned ' + providerMessage);
+      }
+      const messageContent = aiPayload.choices?.[0]?.message?.content;
+      raw = typeof messageContent === 'string'
+        ? messageContent
+        : Array.isArray(messageContent)
+          ? messageContent.map(part => typeof part === 'string' ? part : part?.text || '').join('\\n')
+          : '';
+      if (!raw.trim()) usedFallback = true;
+    } catch (error) {
+      usedFallback = true;
+      console.warn('OpenRouter unavailable; continuing with seller research:', error.message);
     }
 
-    const messageContent = aiPayload.choices?.[0]?.message?.content;
-    const raw = typeof messageContent === 'string'
-      ? messageContent
-      : Array.isArray(messageContent)
-        ? messageContent.map(part => typeof part === 'string' ? part : part?.text || '').join('\n')
-        : '';
-    let result;
-    let usedFallback = false;
     if (raw.trim()) {
       try { result = extractJson(raw); }
       catch { usedFallback = true; }
-    } else {
-      usedFallback = true;
     }
-    const products = await enrichShoppingPages(searchResults);
-    const productsWithImages = (await fillMissingProductImages(products)).filter(product => Boolean(product.image));
+    const productsWithImages = await productWork;
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
 
-    const productUrls = new Set(productsWithImages.map(product => product.url));
+        const productUrls = new Set(productsWithImages.map(product => product.url));
     const safeSources = searchResults
       .filter(source => {
         try { return new URL(source.url).protocol === 'https:' && !looksLikeCategoryResult(source); } catch { return false; }
@@ -384,8 +397,13 @@ router.post('/plan', async (req, res) => {
       note: 'Free-tier research. Confirm price, stock and seller details on the merchant website before purchasing.',
     });
   } catch (error) {
-    console.error('AI shopping research failed:', error.message);
-    return res.status(502).json({ error: 'AI shopping research is temporarily unavailable. Please retry.' });
+    const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError' || /timed out|timeout|aborted/i.test(error?.message || '');
+    console.error(timedOut ? 'Shopping research timed out during web search:' : 'Shopping research failed:', error.message);
+    return res.status(502).json({
+      error: timedOut
+        ? 'Product search took too long to respond. Please try again in a moment or use a more specific product search.'
+        : 'Shopping research is temporarily unavailable. Please retry.',
+    });
   }
 });
 
