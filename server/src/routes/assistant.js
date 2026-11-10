@@ -26,6 +26,36 @@ function metaContent(html, key) {
   return '';
 }
 
+function readStructuredProduct(html) {
+  const scripts = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [];
+  for (const script of scripts) {
+    const raw = script.replace(/^<[\s\S]*?>/, '').replace(/<\/script>$/i, '');
+    try {
+      const parsed = JSON.parse(raw);
+      const queue = Array.isArray(parsed) ? [...parsed] : [parsed];
+      while (queue.length) {
+        const node = queue.shift();
+        if (!node || typeof node !== 'object') continue;
+        if (Array.isArray(node)) { queue.push(...node); continue; }
+        if (node['@graph']) queue.push(...(Array.isArray(node['@graph']) ? node['@graph'] : [node['@graph']]));
+        const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
+        if (types.includes('Product')) {
+          const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers;
+          const imageValue = Array.isArray(node.image) ? node.image[0] : node.image;
+          return {
+            title: typeof node.name === 'string' ? node.name : '',
+            image: typeof imageValue === 'string' ? imageValue : imageValue?.url || imageValue?.contentUrl || '',
+            description: typeof node.description === 'string' ? node.description : '',
+            price: offer?.price || offer?.lowPrice || '',
+            currency: offer?.priceCurrency || 'INR',
+          };
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 function merchantName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
@@ -61,13 +91,17 @@ async function enrichShoppingPages(searchResults) {
       const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
       const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image');
       const description = metaContent(html, 'og:description') || metaContent(html, 'description');
-      const price = metaContent(html, 'product:price:amount') || metaContent(html, 'og:price:amount') || metaContent(html, 'price');
-      if (title) product.title = decodeHtml(title.replace(/<[^>]+>/g, '')).slice(0, 220);
-      if (image) {
-        try { const imageUrl = new URL(image, item.url); if (imageUrl.protocol === 'https:') product.image = imageUrl.href; } catch {}
+      const structured = readStructuredProduct(html);
+      const resolvedTitle = title || structured?.title;
+      const resolvedImage = image || structured?.image;
+      const resolvedDescription = description || structured?.description;
+      const resolvedPrice = price || structured?.price;
+      if (resolvedTitle) product.title = decodeHtml(resolvedTitle.replace(/<[^>]+>/g, '')).slice(0, 220);
+      if (resolvedImage) {
+        try { const imageUrl = new URL(resolvedImage, item.url); if (imageUrl.protocol === 'https:') product.image = imageUrl.href; } catch {}
       }
-      if (description) product.description = description.slice(0, 260);
-      if (price && /^[\d,.]+$/.test(price.trim())) product.price = '₹' + Number(price.replace(/,/g, '')).toLocaleString('en-IN');
+      if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
+      if (resolvedPrice && /^[\d,.]+$/.test(String(resolvedPrice).trim())) product.price = '₹' + Number(String(resolvedPrice).replace(/,/g, '')).toLocaleString('en-IN');
     } catch {
       // Keep the seller search result; never invent page metadata when a merchant blocks fetching.
     }
