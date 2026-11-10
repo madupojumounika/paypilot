@@ -680,3 +680,53 @@
 .app-shell.dark .security-note{background:#1b2c42!important;border-color:#30445d!important}
 @media(max-width:900px){.app-shell .sidebar{width:264px}.app-shell .main-area{margin-left:0}.app-shell .topbar{padding:0 22px}.app-shell .page-content{padding:27px 22px 42px}}
 @media(max-width:600px){.app-shell .page-content{padding:22px 14px 34px}.app-shell .topbar{padding:0 14px}.app-shell .search-box{display:none}.app-shell .ai-search-panel{padding:17px;gap:11px}.app-shell .ai-orb{width:35px;height:35px}.app-shell .ai-input-row{flex-direction:column}.app-shell .ai-input-row .primary-button{width:100%;justify-content:center}.shopping-chat-messages{padding:13px}.shopping-chat-bubble{max-width:92%}.app-shell .ai-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.app-shell .ai-product-image{height:145px}.app-shell .ai-product-card-body{padding:11px}}
+
+
+/* Keep every seller image inside a fixed product-media frame */
+.app-shell .ai-product-card{min-width:0;overflow:hidden}
+.app-shell a.ai-product-image{
+  display:flex;
+  position:relative;
+  flex:0 0 190px;
+  width:100%;
+  height:190px;
+  min-height:190px;
+  max-height:190px;
+  min-width:0;
+  box-sizing:border-box;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  padding:10px;
+  background:#fff;
+}
+.app-shell a.ai-product-image img{
+  display:block;
+  width:auto!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  min-width:0;
+  min-height:0;
+  object-fit:contain!important;
+  object-position:center;
+  padding:0!important;
+  margin:0;
+  flex:none;
+}
+.app-shell a.ai-product-image .ai-product-image-placeholder{
+  width:100%;
+  height:100%;
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+.app-shell .ai-product-card-body{min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){
+  .app-shell a.ai-product-image{
+    flex-basis:150px;
+    height:150px;
+    min-height:150px;
+    max-height:150px;
+  }
+}
