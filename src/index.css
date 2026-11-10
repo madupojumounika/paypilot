@@ -998,3 +998,108 @@
   .app-shell .ai-search-panel{padding:17px}
   .app-shell .ai-product-grid{gap:9px}
 }
+
+
+/* PayPilot dashboard theme refresh: graphite, soft ivory and teal */
+.app-shell{
+  --bg:#f4f7f6;
+  --panel:#ffffff;
+  --sidebar:#102b29;
+  --text:#172b2a;
+  --muted:#748783;
+  --border:#e3ebe8;
+  --soft:#f1f6f4;
+  --chart-grid:#e6eeeb;
+  background:var(--bg);
+  color:var(--text);
+}
+.app-shell .sidebar{background:#102b29;border-color:#24413d;color:#eaf4f1}
+.app-shell .brand-mark{background:#0b8c7d;box-shadow:0 5px 14px #061d1a66}
+.app-shell .brand-ai{color:#75d3c0}
+.app-shell .workspace-switch,.app-shell .sidebar-bottom .security-note{background:#173936;border-color:#2b514b}
+.app-shell .workspace-avatar,.app-shell .profile-avatar{background:#d8f0e9;color:#08786c}
+.app-shell .nav-heading{color:#91aaa4}
+.app-shell .nav-item{color:#b6c9c3}
+.app-shell .nav-item:hover{background:#1c4540;color:#fff}
+.app-shell .nav-item.active{background:#20534c;color:#fff;box-shadow:inset 3px 0 0 #5ed0b7}
+.app-shell .nav-count{background:#d8f0e9;color:#08786c}
+.app-shell .security-icon{color:#70d1bc}
+.app-shell .profile-row{border-color:#2b4944}
+.app-shell .main-area{background:#f4f7f6}
+.app-shell .topbar{background:#fff;border-color:#e3ebe8;box-shadow:0 2px 9px #173c3508}
+.app-shell .breadcrumb strong{color:#1e3935}
+.app-shell .search-box{background:#f7faf8;border-color:#e3ebe8}
+.app-shell .search-box:focus-within{border-color:#78bdb0;box-shadow:0 0 0 3px #0b8c7d12}
+.app-shell .icon-button:hover{background:#eaf4f1;color:#08786c}
+.app-shell .top-avatar{background:#dff1ec;color:#08786c}
+.app-shell .page-heading h1,.app-shell .placeholder-panel h1{color:#172b2a}
+.app-shell .eyebrow{color:#63847c}
+.app-shell .primary-button{background:#087f73;border-color:#087f73;box-shadow:0 4px 10px #087f7324}
+.app-shell .primary-button:hover{background:#06695f;border-color:#06695f}
+.app-shell .secondary-button{border-color:#dce7e3}
+.app-shell .secondary-button:hover{background:#f0f6f3;border-color:#c5d9d2}
+.app-shell .metric-card,.app-shell .panel{border-color:#e2ebe7;box-shadow:0 3px 14px #173c3508}
+.app-shell .metric-card:hover{box-shadow:0 7px 22px #173c3510}
+.app-shell .metric-icon.blue{background:#e1f3ee;color:#087f73}
+.app-shell .metric-icon.green{background:#e5f5ec;color:#25845f}
+.app-shell .metric-icon.orange{background:#fff2e5;color:#c77b32}
+.app-shell .metric-icon.violet{background:#f0edfa;color:#7560b6}
+.app-shell .metric-value{color:#17332f}
+.app-shell .permission-hero{background:#edf6f2;border-color:#dfede7}
+.app-shell .permission-shield,.app-shell .placeholder-icon{background:#dff1eb;color:#087f73}
+.app-shell .ai-search-panel{background:linear-gradient(112deg,#eaf5f1 0%,#f8fbf9 58%,#edf7f3 100%);border-color:#d8eae3}
+.app-shell .ai-orb{background:#087f73;box-shadow:0 5px 13px #087f732c}
+.app-shell .ai-search-content h2{color:#173b35}
+.app-shell .ai-input-row input:focus{border-color:#78bdb0;box-shadow:0 0 0 3px #087f7312}
+.app-shell .suggestion-chips button{border-color:#d8e7e1;color:#4c6c64}
+.app-shell .suggestion-chips button:hover{border-color:#91c7b9;background:#eaf5f1;color:#08786c}
+.app-shell .shopping-chat-heading>div:first-child{background:#e1f3ee;color:#087f73}
+.app-shell .shopping-chat-messages{background:#f5f9f7}
+.app-shell .shopping-chat-row.user .shopping-chat-bubble{background:#e7f4ef;border-color:#d3e9e0;color:#24594e}
+.app-shell .chat-thinking{color:#4d7b70}
+.app-shell .chat-thinking span{background:#0b9b86}
+.app-shell .ai-product-card{border-color:#e1eae6}
+.app-shell .ai-product-card:hover{border-color:#b9d8cd;box-shadow:0 10px 24px #173c3512}
+.app-shell .ai-product-merchant{color:#718981}
+.app-shell .ai-product-card h4{color:#1d3934}
+.app-shell .ai-product-price{color:#126c60}
+.app-shell .ai-product-view-link{color:#087f73}
+.app-shell .safety-banner{background:#edf7f2;border-color:#d9eee4}
+.app-shell .mobile-scrim{background:#071b18d9}
+.app-shell.dark{
+  --bg:#0d1918;--panel:#142422;--sidebar:#0a1716;
+  --text:#e8f2ee;--muted:#9aafa8;--border:#29413c;
+  --soft:#1b302c;--chart-grid:#29413c;
+  background:#0d1918;color:#e8f2ee;
+}
+.app-shell.dark .sidebar{background:#0a1716;border-color:#213b35}
+.app-shell.dark .brand-name,.app-shell.dark .page-heading h1,.app-shell.dark .placeholder-panel h1,.app-shell.dark .panel-heading h2,.app-shell.dark .metric-value{color:#e8f2ee}
+.app-shell.dark .workspace-switch,.app-shell.dark .sidebar-bottom .security-note{background:#122a26;border-color:#294840}
+.app-shell.dark .nav-item.active{background:#1c4941;color:#b8f1e3;box-shadow:inset 3px 0 0 #55c9ae}
+.app-shell.dark .main-area{background:#0d1918}
+.app-shell.dark .topbar{background:#12221f;border-color:#29413c}
+.app-shell.dark .breadcrumb strong{color:#e2eee9}
+.app-shell.dark .search-box{background:#172c28;border-color:#345049}
+.app-shell.dark .metric-card,.app-shell.dark .panel,.app-shell.dark .approval-modal{background:#142422;border-color:#29413c}
+.app-shell.dark .panel-heading h2,.app-shell.dark .metric-top,.app-shell.dark .metric-foot,.app-shell.dark .page-heading p{color:#a6bbb3}
+.app-shell.dark .select-button,.app-shell.dark .secondary-button{background:#1a302c;border-color:#345049;color:#d8e8e1}
+.app-shell.dark .permission-hero{background:#1a302b;border-color:#315047}
+.app-shell.dark .permission-shield,.app-shell.dark .placeholder-icon{background:#21483f;color:#9be0ce}
+.app-shell.dark .ai-search-panel{background:linear-gradient(112deg,#152c27,#1a332e);border-color:#315047}
+.app-shell.dark .ai-search-content h2,.app-shell.dark .shopping-chat-heading strong,.app-shell.dark .ai-product-card h4{color:#e4f1eb}
+.app-shell.dark .ai-input-row input,.app-shell.dark .suggestion-chips button{background:#12231f;border-color:#345049;color:#e2eee8}
+.app-shell.dark .suggestion-chips button:hover{background:#1d4038;border-color:#4a8c79;color:#c4f1e4}
+.app-shell.dark .shopping-chat-heading{border-color:#29413c}
+.app-shell.dark .shopping-chat-messages{background:#10201d}
+.app-shell.dark .shopping-chat-bubble{background:#1a302c;border-color:#345049;color:#d2e3dc}
+.app-shell.dark .shopping-chat-row.user .shopping-chat-bubble{background:#20483e;border-color:#356b5d;color:#e0f5ed}
+.app-shell.dark .ai-research-summary{background:#1a302c;border-color:#345049;color:#d2e3dc}
+.app-shell.dark .ai-product-card{background:#142422;border-color:#315047}
+.app-shell.dark a.ai-product-image{background:#fff}
+.app-shell.dark .ai-product-price{color:#a9e4d4}
+.app-shell.dark .ai-product-view-link{color:#79d5bf}
+.app-shell.dark .transaction-row,.app-shell.dark .permission-row{border-color:#29413c}
+.app-shell.dark .security-note strong{color:#e4f1eb}
+.app-shell.dark .security-note span{color:#a6bbb3}
+.app-shell.dark .search-box:focus-within{border-color:#5ba995}
+@media(max-width:900px){.app-shell .sidebar{width:258px}}
