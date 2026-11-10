@@ -44,7 +44,10 @@ router.post('/plan', async (req, res) => {
     catch { return res.status(502).json({ error: 'AI provider returned an unreadable response.' }); }
     const sources = (payload.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
       .map(chunk => chunk.web)
-      .filter(source => source?.uri)
+      .filter(source => {
+        if (!source?.uri) return false;
+        try { return new URL(source.uri).protocol === 'https:'; } catch { return false; }
+      })
       .map(source => ({ title: source.title || source.uri, url: source.uri }));
     return res.json({ result, sources, provider: 'Gemini', note: 'Search-grounded research only. Verify merchant details before checkout.' });
   } catch (error) {
