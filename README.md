@@ -26,6 +26,7 @@ PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit u
 - Account registration and login using bcrypt password hashing and signed JWTs.
 - Authenticated spending-rule, approval and transaction endpoints.
 - Approval requests are checked against enabled spending rules and the user's monthly budget.
+- Gemini-powered, Google Search-grounded shopping research endpoint. It keeps the API key on the server and returns source links; it does not invent prices or merchants when search evidence is missing.
 - An approval creates an `approved_pending_payment` record only. **It does not create a PayPal order, authorize a card, or capture a payment.**
 - Helmet, CORS allow-listing, request-size limits and authentication rate limiting.
 
@@ -74,12 +75,13 @@ The frontend runs on Vite's local URL (normally `http://localhost:5173`) and the
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
 | PATCH | `/api/approvals/:id` | Approve or decline a pending request |
 | GET | `/api/transactions` | List the signed-in user's activity |
+| POST | `/api/assistant/plan` | Run grounded AI shopping research (Gemini key required) |
 
 Protected routes require `Authorization: Bearer <token>`.
 
 ## Important integration status
 
-This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Gemini and PayPal environment variables are placeholders only. No real payment is possible in the current implementation.
+This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Gemini can be enabled by setting `GEMINI_API_KEY` and `GEMINI_MODEL` on the server; the research endpoint is not yet wired into the dashboard UI. PayPal environment variables are placeholders only. No real payment is possible in the current implementation.
 
 Before enabling real integrations, the frontend must be connected to authenticated API endpoints, live product data must come from trusted merchant/provider sources, and PayPal sandbox checkout must be implemented and tested with explicit user confirmation before any capture endpoint can be called. Never commit secrets or production credentials.
 
