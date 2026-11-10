@@ -11,6 +11,70 @@ function extractJson(raw) {
   }
 }
 
+function decodeHtml(value = '') {
+  return String(value).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).trim();
+}
+
+function metaContent(html, key) {
+  const tags = html.match(/<meta\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    const name = tag.match(/(?:property|name|itemprop)=["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    if (name !== key.toLowerCase()) continue;
+    const content = tag.match(/content=["']([^"']*)["']/i)?.[1];
+    if (content) return decodeHtml(content);
+  }
+  return '';
+}
+
+function merchantName(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return ({'amazon.in':'Amazon India','flipkart.com':'Flipkart','croma.com':'Croma','reliancedigital.in':'Reliance Digital','vijaysales.com':'Vijay Sales'}[host] || host);
+  } catch { return 'Seller website'; }
+}
+
+async function enrichShoppingPages(searchResults) {
+  const candidates = searchResults.filter(item => {
+    try {
+      const host = new URL(item.url).hostname.replace(/^www\./, '');
+      return ['amazon.in','flipkart.com','croma.com','reliancedigital.in','vijaysales.com','lenovo.com','hp.com','dell.com','asus.com','acer.com'].includes(host);
+    } catch { return false; }
+  }).slice(0, 6);
+
+  return Promise.all(candidates.map(async item => {
+    const fallbackTitle = item.title || 'Product listing';
+    const product = {
+      title: fallbackTitle,
+      url: item.url,
+      image: null,
+      description: null,
+      price: null,
+      merchant: merchantName(item.url),
+    };
+    try {
+      const response = await fetch(item.url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PayPilotResearch/1.0)', 'Accept': 'text/html,application/xhtml+xml' },
+        signal: AbortSignal.timeout(6500),
+      });
+      if (!response.ok) return product;
+      const html = (await response.text()).slice(0, 1200000);
+      const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+      const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image');
+      const description = metaContent(html, 'og:description') || metaContent(html, 'description');
+      const price = metaContent(html, 'product:price:amount') || metaContent(html, 'og:price:amount') || metaContent(html, 'price');
+      if (title) product.title = decodeHtml(title.replace(/<[^>]+>/g, '')).slice(0, 220);
+      if (image) {
+        try { const imageUrl = new URL(image, item.url); if (imageUrl.protocol === 'https:') product.image = imageUrl.href; } catch {}
+      }
+      if (description) product.description = description.slice(0, 260);
+      if (price && /^[\d,.]+$/.test(price.trim())) product.price = '₹' + Number(price.replace(/,/g, '')).toLocaleString('en-IN');
+    } catch {
+      // Keep the seller search result; never invent page metadata when a merchant blocks fetching.
+    }
+    return product;
+  }));
+}
+
 function buildSearchFallback(query, searchResults, budget) {
   return {
     summary: 'Web search found ' + searchResults.length + ' relevant shopping pages for “' + query + '”. The free AI model did not return a usable comparison, so PayPilot is showing source links only. It will not turn articles, videos or search snippets into fake product cards or guess prices.' + (budget ? ' Search budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
@@ -126,8 +190,11 @@ router.post('/plan', async (req, res) => {
       })
       .map(({ title, url }) => ({ title: title || url, url }));
 
+    const products = await enrichShoppingPages(searchResults);
+
     return res.json({
       result,
+      products,
       sources: safeSources,
       provider: usedFallback ? 'Tavily web search · source-based fallback (AI response unavailable)' : 'OpenRouter (free model) + Tavily Search',
       note: 'Free-tier research. Confirm price, stock and seller details on the merchant website before purchasing.',
