@@ -61,7 +61,7 @@ const App = () => {
   const [name,setName] = usePersistentState('paypilot:name','');
   const [email,setEmail] = usePersistentState('paypilot:email','');
   const [apiToken,setApiToken] = usePersistentState('paypilot:api-token','');
-  const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>('landing');
+  const [siteView,setSiteView] = useState<'landing'|'auth'|'dashboard'|'guest-shopping'>(apiToken ? 'dashboard' : 'landing');
   const [authError,setAuthError] = useState('');
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const googleClientId = (import.meta as ImportMeta & {env?:Record<string,string>}).env?.VITE_GOOGLE_CLIENT_ID || '';
