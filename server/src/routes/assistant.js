@@ -97,11 +97,25 @@ function isProductPageUrl(url) {
     if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.replace(/^www\./, '');
     const path = parsed.pathname.toLowerCase();
-    if (host === 'amazon.in') return /\/(?:dp|gp\/product)\//.test(path);
-    if (host === 'flipkart.com') return /\/p\/[a-z0-9]/.test(path);
-    if (['croma.com','reliancedigital.in','vijaysales.com'].includes(host)) return /\/(?:p|product|products)\//.test(path);
-    return /\/(?:p|product|products)\//.test(path) || /\/[a-z0-9-]+-\d{4,}(?:\.html?)?$/.test(path);
+    const blocked = /\/content\/|\/collection\/|\/category\/|\/categories\/|\/search\/|\/filter\/|\/listing\/|\/offers?\/|\/deals?\/|under[-/ ]?(?:rs|inr|₹)?[-/ ]?\d|\/(?:laptops?|mobiles?|phones?|tablets?)\/?$/i;
+    if (blocked.test(path)) return false;
+    if (host === 'amazon.in') return /\/(?:dp|gp\/product)\/[a-z0-9]{8,}/i.test(path);
+    if (host === 'flipkart.com') return /\/p\/itm[a-z0-9]{8,}/i.test(path);
+    if (host === 'croma.com') return /\/(?:p|product)\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    if (host === 'reliancedigital.in') return /\/p\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    if (host === 'vijaysales.com') return /\/p\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    if (host === 'lenovo.com') return /\/p\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    if (host === 'hp.com') return /\/(?:pdp|product)\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    if (host === 'dell.com') return /\/shop\/[a-z0-9-]+\/pd(?:\/|$)/i.test(path);
+    if (host === 'asus.com' || host === 'acer.com') return /\/(?:store|shop)\/p\/[a-z0-9-]+(?:\.html?)?$/i.test(path);
+    return /\/(?:p|product|products)\/[a-z0-9-]{5,}(?:\.html?)?$/i.test(path);
   } catch { return false; }
+}
+
+function looksLikeCategoryResult(item) {
+  const text = [item.title, item.content, item.url].join(' ').toLowerCase();
+  return /\b(category|collection|buying guide|top picks|best laptops|laptops under|under ₹?\s?\d|under rs\.?\s?\d|price list|all laptops|shop all|browse all|product range|deals and offers)\b/.test(text)
+    || /\/content\/|\/collection\/|\/category\/|\/categories\/|\/search\/|\/filter\//i.test(item.url || '');
 }
 
 function merchantName(url) {
@@ -143,7 +157,7 @@ async function fillMissingProductImages(products) {
         if (!image.url) return false;
         try {
           const parsed = new URL(image.url);
-          return parsed.protocol === 'https:' && parsed.href !== product.url && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
+          return parsed.protocol === 'https:' && parsed.href !== product.url && !/\.svg(?:$|\?)/i.test(parsed.pathname) && !/logo|icon|sprite|banner|avatar|badge/i.test(parsed.href);
         } catch { return false; }
       });
       const titleWords = product.title.toLowerCase().split(/\W+/).filter(word => word.length > 3);
@@ -162,7 +176,9 @@ async function enrichShoppingPages(searchResults) {
   const candidates = searchResults.filter(item => {
     try {
       const host = new URL(item.url).hostname.replace(/^www\./, '');
-      return ['amazon.in','flipkart.com','croma.com','reliancedigital.in','vijaysales.com','lenovo.com','hp.com','dell.com','asus.com','acer.com'].includes(host);
+      return ['amazon.in','flipkart.com','croma.com','reliancedigital.in','vijaysales.com','lenovo.com','hp.com','dell.com','asus.com','acer.com'].includes(host)
+        && isProductPageUrl(item.url)
+        && !looksLikeCategoryResult(item);
     } catch { return false; }
   }).slice(0, 10);
 
@@ -191,7 +207,8 @@ async function enrichShoppingPages(searchResults) {
       const currency = metaContent(html, 'product:price:currency') || structured?.currency || 'INR';
       const isStructuredProduct = Boolean(structured?.title);
       const isOpenGraphProduct = metaContent(html, 'og:type').toLowerCase() === 'product';
-      if (!isProductPageUrl(item.url) && !isStructuredProduct && !isOpenGraphProduct) return null;
+      if (!isProductPageUrl(item.url)) return null;
+      if (!isStructuredProduct && !isOpenGraphProduct && !title) return null;
       const resolvedTitle = structured?.title || title;
       const resolvedImage = structured?.image || image;
       const resolvedDescription = structured?.description || description;
@@ -200,7 +217,7 @@ async function enrichShoppingPages(searchResults) {
         try {
           const imageUrl = new URL(resolvedImage, item.url);
           const productUrl = new URL(item.url);
-          if (imageUrl.protocol === 'https:' && imageUrl.href !== productUrl.href) product.image = imageUrl.href;
+          if (imageUrl.protocol === 'https:' && imageUrl.href !== productUrl.href && !/\.svg(?:$|\?)/i.test(imageUrl.pathname)) product.image = imageUrl.href;
         } catch {}
       }
       if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
@@ -218,17 +235,20 @@ async function enrichShoppingPages(searchResults) {
   return enriched.filter(Boolean);
 }
 
-function buildSearchFallback(query, searchResults, budget) {
+function buildSearchFallback(query, searchResults, products, budget) {
+  const summary = products.length
+    ? 'The free AI model did not return a usable comparison. PayPilot found ' + products.length + ' individual product page' + (products.length === 1 ? '' : 's') + ' that passed its listing checks. Prices and stock are shown only when the seller page exposes them.'
+    : 'The free AI model did not return a usable comparison, and the search did not produce a verifiable individual product page for “' + query + '”. PayPilot has hidden category pages, buying guides and generic search pages instead of presenting them as products. Try a more specific model or retailer search.';
   return {
-    summary: 'Web search found ' + searchResults.length + ' relevant shopping pages for “' + query + '”. The free AI model did not return a usable comparison, so PayPilot is showing visual product listings enriched with details available on the seller pages. It will not turn articles, videos or search snippets into fake product cards or guess prices.' + (budget ? ' Search budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
+    summary: summary + (budget ? ' Your budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
     criteria: [
-      { label: 'Compare the exact model and specifications on the seller page', importance: 'must-have' },
+      { label: 'Compare the exact model, processor, memory and display specifications', importance: 'must-have' },
       { label: 'Confirm the final selling price, delivery and return policy', importance: 'must-have' },
-      { label: 'Check seller reputation, warranty and stock', importance: 'nice-to-have' },
+      { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
     ],
     options: [],
-    questions: ['Try again shortly if you want an AI-generated product comparison.'],
-    safetyNote: 'Source links are research leads, not verified offers. Confirm product model, price and availability directly with the seller. No purchase has been made.',
+    questions: products.length ? ['Open each seller page to confirm its current offer and availability.'] : ['Try a specific model such as Lenovo IdeaPad Slim 5, ASUS Vivobook 15 or HP Pavilion 14.', 'You can also include a preferred seller such as Amazon, Flipkart or Croma.'],
+    safetyNote: 'Seller pages and metadata can change. Confirm the exact model, final price, warranty and availability on the merchant website. No purchase has been made.',
   };
 }
 
@@ -264,11 +284,13 @@ router.post('/plan', async (req, res) => {
       return res.status(502).json({ error: 'Product web search failed. Check your Tavily free-tier key and quota.' });
     }
 
-    const searchResults = (searchPayload.results || []).filter(item => !/youtube\.com|youtu\.be/i.test(item.url || '')).slice(0, 8).map(item => ({
-      title: String(item.title || '').slice(0, 240),
-      url: item.url,
-      content: String(item.content || '').slice(0, 1800),
-    }));
+    const searchResults = (searchPayload.results || [])
+      .filter(item => !/youtube\.com|youtu\.be/i.test(item.url || ''))
+      .map(item => ({
+        title: String(item.title || '').slice(0, 240),
+        url: item.url,
+        content: String(item.content || '').slice(0, 1800),
+      }));
     if (!searchResults.length) return res.status(404).json({ error: 'No useful web results found. Try a more specific product search.' });
 
     const budgetLine = req.body?.budget !== undefined ? 'Maximum budget: INR ' + budget + '.' : 'No budget was supplied.';
@@ -323,18 +345,19 @@ router.post('/plan', async (req, res) => {
     } else {
       usedFallback = true;
     }
-    if (usedFallback || !result || !Array.isArray(result.options)) {
-      result = buildSearchFallback(query, searchResults, budget);
-    }
-
-    const safeSources = searchResults
-      .filter(source => {
-        try { return new URL(source.url).protocol === 'https:'; } catch { return false; }
-      })
-      .map(({ title, url }) => ({ title: title || url, url }));
-
     const products = await enrichShoppingPages(searchResults);
     const productsWithImages = await fillMissingProductImages(products);
+    if (usedFallback || !result || !Array.isArray(result.options)) {
+      result = buildSearchFallback(query, searchResults, productsWithImages, budget);
+    }
+
+    const productUrls = new Set(productsWithImages.map(product => product.url));
+    const safeSources = searchResults
+      .filter(source => {
+        try { return new URL(source.url).protocol === 'https:' && !looksLikeCategoryResult(source); } catch { return false; }
+      })
+      .filter(source => productUrls.has(source.url) || isProductPageUrl(source.url))
+      .map(({ title, url }) => ({ title: title || url, url }));
 
     return res.json({
       result,
