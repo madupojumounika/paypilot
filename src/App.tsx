@@ -6,7 +6,7 @@ import {
   CreditCard, LayoutDashboard, LockKeyhole, Menu, Moon, Search, Settings,
   ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Sun, Wallet, X,
   Clock3, MoreHorizontal, Plus, ExternalLink, RefreshCw,
-  Link2, ChevronRight
+  Link2
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
@@ -80,8 +80,6 @@ const App = () => {
   const [aiResearch,setAiResearch] = useState<AiResearch|null>(null);
   const [aiLoading,setAiLoading] = useState(false);
   const [productSearch,setProductSearch] = useState('wireless headphones');
-  const [productCategory,setProductCategory] = useState('All');
-  const [selectedProduct,setSelectedProduct] = useState(1);
   const [savedProducts,setSavedProducts] = usePersistentState<number[]>('paypilot:saved-products',[]);
   const [range,setRange] = usePersistentState('paypilot:chart-range','This week');
   const notify = (s:string) => { setNotice(s); window.setTimeout(()=>setNotice(''),2600); };
@@ -115,14 +113,13 @@ const App = () => {
 
   const go = (p:Page) => {setPage(p);setMobileOpen(false);};
   const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
-  const currentProduct = products.find(p=>p.id===selectedProduct) || products[0];
+  const currentProduct = products[0];
   const monthlyBudget = Math.max(0,Number(budget)||0);
   const spentAmount = tx.filter(t=>t.status==='Completed'||t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
   const availableBudget = Math.max(0,monthlyBudget-spentAmount);
   const budgetUsed = monthlyBudget>0?Math.min(100,spentAmount/monthlyBudget*100):0;
   const pendingCount = requests.filter(a=>!approved.includes(a.id)&&!denied.includes(a.id)).length;
   const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
-  const matchingProducts = products.filter(p=>(productCategory==='All'||p.category===productCategory) && (!productSearch.trim() || productSearch.toLowerCase().split(/\\s+/).filter(Boolean).some(term=>(p.name+' '+p.category+' '+p.merchant+' '+p.keywords).toLowerCase().includes(term))));
   const greeting = new Date().getHours()<12?'Good morning':new Date().getHours()<17?'Good afternoon':'Good evening';
   const approve = (id:number) => {const request=requests.find(a=>a.id===id);setApproved(v=>v.includes(id)?v:[...v,id]);if(request){setTx(v=>[{id:Date.now(),name:request.merchant,detail:request.name,amount:request.amount,date:'Just now',status:'Approved',initials:request.icon,tone:request.tone,category:request.kind},...v]);setRules(v=>v.map(r=>r.enabled&&(!r.category||r.category==='all'||r.category===request.kind)?{...r,spent:r.spent+request.amount}:r));}setModal(null);notify('Approved in demo mode. No payment was sent.');};
   const decline = (id:number) => {const request=requests.find(a=>a.id===id);setDenied(v=>v.includes(id)?v:[...v,id]);if(request)setTx(v=>[{id:Date.now(),name:request.merchant,detail:request.name,amount:request.amount,date:'Just now',status:'Declined',initials:request.icon,tone:request.tone,category:request.kind},...v]);setModal(null);notify('Request declined in demo mode.');};
