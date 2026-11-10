@@ -485,3 +485,28 @@
 .google-fallback-button{width:100%;height:43px;border:1px solid #d6dce5;border-radius:6px;background:#fff;color:#263449;display:flex;align-items:center;justify-content:center;gap:11px;font-size:12px;font-weight:650;cursor:pointer;transition:background .18s,border-color .18s}
 .google-fallback-button:hover{background:#f8fafc;border-color:#aeb9c8}
 .google-fallback-button svg{width:17px;height:17px;flex:none}
+
+/* PayPilot workspace refinement */
+.app-shell .sidebar{background:#fbfcfe;border-right-color:#e7ebf1;padding-top:22px}
+.app-shell .brand{padding-bottom:25px}
+.app-shell .brand-mark{width:34px;height:34px;border-radius:10px;background:#173b70;box-shadow:none;color:#fff}
+.app-shell .brand-mark svg{stroke-width:2.25}
+.app-shell .brand-name{font-size:18px;letter-spacing:-.55px;color:#172b49}
+.app-shell .workspace-switch{background:#fff;border-color:#e7ebf1;border-radius:8px;margin-bottom:24px}
+.app-shell .nav-group{margin-bottom:17px}
+.app-shell .nav-heading{font-size:9px;letter-spacing:1.05px;font-weight:700;color:#8994a4;padding-left:11px}
+.app-shell .nav-item{height:40px;border-radius:7px;font-size:12px;gap:11px;color:#566477}
+.app-shell .nav-item svg{color:#7b8797;stroke-width:1.8}
+.app-shell .nav-item.active{background:#eaf1fb;color:#174b87;font-weight:650}
+.app-shell .nav-item.active svg{color:#174b87}
+.app-shell .sidebar-bottom .security-note{background:#f4f7fb;border:1px solid #e7edf5;border-radius:8px}
+.app-shell .profile-row{padding-top:13px;border-top-color:#e7ebf1}
+.app-shell .profile-copy{min-width:0;flex:1}
+.app-shell .profile-copy strong{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-shell .profile-copy span{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-shell .signout-link{margin-top:7px;color:#687588}
+.app-shell .signout-link:hover{background:#f1f4f8;color:#263b56}
+.pp-logo-symbol{font-style:normal;letter-spacing:0;border-radius:9px;background:#173b70;width:34px;height:34px}
+.public-brand-mark{border-radius:9px;background:#173b70}
+.google-fallback-button{border-radius:5px}
+@media(max-width:900px){.app-shell .sidebar{background:#fbfcfe}}
