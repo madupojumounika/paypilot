@@ -458,3 +458,25 @@
  .pp-hero-video-caption{left:22px;right:22px;bottom:20px}
 }
 @media(prefers-reduced-motion:reduce){.pp-hero-video-media{display:none}.pp-hero-video{background:#092b57}}
+
+
+/* Seller-backed visual product cards in AI shopping research */
+.ai-visual-products{margin:22px 0 26px}
+.ai-products-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:13px}
+.ai-products-heading h3{margin:0 0 4px;font-size:15px;color:var(--text)}
+.ai-products-heading p{margin:0;font-size:11px;color:var(--muted)}
+.ai-products-heading>span{font-size:10px;color:var(--muted);white-space:nowrap}
+.ai-product-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:13px}
+.ai-product-card{min-width:0;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:var(--panel);display:flex;flex-direction:column}
+.ai-product-image{height:176px;display:flex;align-items:center;justify-content:center;background:#fff;border-bottom:1px solid var(--border);overflow:hidden}
+.ai-product-image img{width:100%;height:100%;object-fit:contain;padding:12px}
+.ai-product-image-placeholder{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#8291a4;background:#f5f7fa;font-size:10px}
+.ai-product-card-body{padding:13px;display:flex;flex-direction:column;align-items:flex-start;flex:1}
+.ai-product-merchant{font-size:9px;letter-spacing:.5px;text-transform:uppercase;font-weight:800;color:var(--muted)}
+.ai-product-card h4{font-size:13px;line-height:1.45;color:var(--text);margin:7px 0 10px;min-height:38px}
+.ai-product-price{font-size:17px;color:var(--text);margin-bottom:8px}
+.ai-price-unavailable{font-size:11px;color:var(--muted);margin-bottom:8px}
+.ai-product-card-body p{font-size:10px;line-height:1.55;color:var(--muted);margin:0 0 12px}
+.ai-product-view-link{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:9px;color:var(--accent,#2874dc);font-size:11px;font-weight:700;text-decoration:none}
+.ai-product-view-link:hover{text-decoration:underline}
+@media(max-width:560px){.ai-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ai-product-image{height:138px}.ai-product-card-body{padding:10px}.ai-product-card h4{font-size:11px}.ai-product-price{font-size:15px}.ai-products-heading h3{font-size:13px}}
