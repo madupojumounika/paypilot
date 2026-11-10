@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import ruleRoutes from './routes/rules.js';
 import approvalRoutes from './routes/approvals.js';
 import transactionRoutes from './routes/transactions.js';
+import assistantRoutes from './routes/assistant.js';
 
 const app = express();
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',').map(value => value.trim());
@@ -22,6 +23,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/assistant', rateLimit({ windowMs: 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false }), assistantRoutes);
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((error, _req, res, _next) => {
   if (error?.code === 11000) return res.status(409).json({ error: 'That email is already registered.' });
