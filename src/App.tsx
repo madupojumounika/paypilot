@@ -272,6 +272,21 @@ const App = () => {
       await openFxQuote(id);
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
   };
+  const acceptFxQuote = async () => {
+    if(!fxQuote?.id)return;
+    try {
+      await apiRequest('/api/fx/quotes/'+fxQuote.id+'/accept',apiToken,{method:'POST'});
+      setFxQuote((current:any)=>current?{...current,status:'accepted'}:current);
+      notify('Conversion estimate accepted. Continue with PayPal Sandbox checkout below.');
+    } catch(error) { setApiError(error instanceof Error?error.message:'Could not accept the conversion estimate.'); }
+  };
+  const onSandboxPaymentCompleted = async (value:PayPalReceipt) => {
+    setReceipt(value);
+    setModal({type:'receipt'});
+    notify('PayPal Sandbox capture verified.');
+    await refreshWorkspace();
+  };
+  const onSandboxPaymentError = (message:string) => setApiError(message);
   const decline = async (id:string) => {
     try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
     catch(error) { setApiError(error instanceof Error?error.message:'Could not decline request.'); }
