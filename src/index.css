@@ -1279,3 +1279,9 @@
  .app-shell .shopping-conversion strong{font-size:17px}
  .app-shell .shopping-flow-product{align-items:flex-start;flex-direction:column}
 }
+
+
+.ai-comparison-best{margin:0 0 14px;padding:11px 13px;border:1px solid #d8eae1;border-radius:8px;background:#f1f8f4;color:#4f7062;font-size:11px;line-height:1.6}
+.ai-comparison-best strong{color:#087f73}
+.app-shell.dark .ai-comparison-best{background:#172d27;border-color:#315047;color:#a3b9af}
+.app-shell.dark .ai-comparison-best strong{color:#9be0ce}
