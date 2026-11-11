@@ -1193,3 +1193,8 @@
 .app-shell.dark .fx-quote-amount{background:#172d27;border-color:#315047}
 .app-shell.dark .fx-quote-amount span{color:#c9e9db}
 .app-shell.dark .fx-quote-amount strong{color:#9be0ce}
+
+.app-shell .paypal-sandbox-button-wrap{margin:18px 0;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
+.app-shell .paypal-sandbox-button-wrap small{display:block;margin-top:9px;text-align:center;color:var(--muted);font-size:9px}
+.app-shell .fx-sdk-notice{margin:18px 0;padding:13px;border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-size:11px;line-height:1.6}
+.app-shell .fx-sdk-notice code{color:var(--text);font-weight:700}
