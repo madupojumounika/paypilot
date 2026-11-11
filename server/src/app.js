@@ -22,7 +22,7 @@ app.use(cors({ origin: (origin, callback) => {
 }, credentials: true }));
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false }));
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', databaseConfigured: Boolean(process.env.MONGODB_URI), paymentsEnabled: false }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', databaseConfigured: Boolean(process.env.MONGODB_URI), paymentsEnabled: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET), paymentEnvironment: 'sandbox' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/approvals', approvalRoutes);
