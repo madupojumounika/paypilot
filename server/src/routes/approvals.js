@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import Approval from '../models/Approval.js';
 import SpendingRule from '../models/SpendingRule.js';
 import Transaction from '../models/Transaction.js';
@@ -17,9 +18,15 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { merchant, item, category = 'shopping', amount, currency = 'INR', userGoal = '', recommendationSummary = '', recommendationReason = '', rejectedAlternatives = [], productUrl = '', productImage = '' } = req.body || {};
+    const { merchant, item, category = 'shopping', amount, currency = 'INR', userGoal = '', recommendationSummary = '', recommendationReason = '', rejectedAlternatives = [], productUrl = '', productImage = '', selectionToken = '' } = req.body || {};
     const value = Number(amount);
-    if (typeof merchant !== 'string' || !merchant.trim() || typeof item !== 'string' || !item.trim() || currency !== 'INR' || !Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Merchant, item and a positive amount are required.' });
+    if (typeof merchant !== 'string' || !merchant.trim() || typeof item !== 'string' || !item.trim() || currency !== 'INR' || !Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Merchant, item and a positive INR amount are required.' });
+    let selection;
+    try { selection = jwt.verify(String(selectionToken || ''), process.env.JWT_SECRET); }
+    catch { return res.status(400).json({ error: 'The seller-backed INR price verification expired or is invalid. Run a fresh product search before requesting approval.' }); }
+    if (selection?.type !== 'purchase_selection' || selection.currency !== 'INR' || selection.title !== item.trim() || selection.merchant !== merchant.trim() || selection.url !== productUrl || Math.abs(Number(selection.amountINR) - value) > 0.01) {
+      return res.status(400).json({ error: 'The selected product, seller, URL and INR amount do not match the verified seller result. Search again before requesting approval.' });
+    }
 
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'Account not found.' });
