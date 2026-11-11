@@ -440,7 +440,7 @@ router.post('/plan', async (req, res) => {
       .filter(source => {
         try { return new URL(source.url).protocol === 'https:' && !looksLikeCategoryResult(source); } catch { return false; }
       })
-      .filter(source => productUrls.has(source.url) || isProductPageUrl(source.url))
+      .filter(source => productUrls.has(source.url))
       .map(({ title, url }) => ({ title: title || url, url }));
 
     return res.json({
