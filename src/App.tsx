@@ -54,7 +54,8 @@ const App = () => {
   const [auditEvents,setAuditEvents] = useState<any[]>([]);
   const [rules,setRules] = useState<Rule[]>([]);
   const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect'|'transaction'|'fxQuote';id?:string|number}|null>(null);\n  const [fxQuote,setFxQuote] = useState<any>(null);
+  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect'|'transaction'|'fxQuote';id?:string|number}|null>(null);
+  const [fxQuote,setFxQuote] = useState<any>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
   const [connected] = useState<string[]>([]);
@@ -184,8 +185,28 @@ const App = () => {
     setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:new Date(t.createdAt).toLocaleString(),amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
   };
   const approve = async (id:string) => {
-    try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'approved'})}); await refreshWorkspace(); setModal(null); notify('Request approved. No payment was made.'); }
-    catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
+    try {
+      await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'approved'})});
+      await refreshWorkspace();
+      setModal(null);
+      notify('Purchase approved. Preparing your INR to USD conversion estimate.');
+      try {
+        const data=await apiRequest<{quote:any}>('/api/fx/quotes',apiToken,{method:'POST',body:JSON.stringify({approvalId:id})});
+        setFxQuote(data.quote);
+        setModal({type:'fxQuote',id:data.quote.id});
+      } catch(error) {
+        setApiError('Your purchase request was approved, but the exchange-rate service could not provide a quote. No payment was made. You can retry from the approved request.');
+      }
+    } catch(error) { setApiError(error instanceof Error?error.message:'Could not approve request.'); }
+  };
+  const acceptFxQuote = async () => {
+    if(!fxQuote?.id)return;
+    try {
+      await apiRequest('/api/fx/quotes/'+fxQuote.id+'/accept',apiToken,{method:'POST'});
+      setModal(null);
+      notify('Conversion estimate accepted. PayPal Sandbox checkout is not connected yet; no payment was made.');
+      await refreshWorkspace();
+    } catch(error) { setApiError(error instanceof Error?error.message:'Could not accept the conversion estimate.'); }
   };
   const decline = async (id:string) => {
     try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
