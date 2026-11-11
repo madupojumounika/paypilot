@@ -1183,3 +1183,13 @@
 .app-shell.dark .audit-event-marker{background:#21483d;color:#a6e7d4}
 .app-shell.dark .audit-event-marker.approved{background:#1e4a35;color:#8de1ae}
 .app-shell.dark .audit-event-marker.declined{background:#4b2b2a;color:#f2aaa1}
+
+
+/* Explicit INR to USD reference quote */
+.app-shell .fx-quote-amount{display:flex;align-items:center;justify-content:center;gap:14px;margin:18px 0;padding:20px 14px;border:1px solid #dceae4;border-radius:10px;background:#f2f8f5}
+.app-shell .fx-quote-amount span{font-size:18px;font-weight:750;color:#31564b}
+.app-shell .fx-quote-amount b{font-size:16px;color:#8aa69b}
+.app-shell .fx-quote-amount strong{font-size:25px;letter-spacing:-.8px;color:#087f73}
+.app-shell.dark .fx-quote-amount{background:#172d27;border-color:#315047}
+.app-shell.dark .fx-quote-amount span{color:#c9e9db}
+.app-shell.dark .fx-quote-amount strong{color:#9be0ce}
