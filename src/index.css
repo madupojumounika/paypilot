@@ -1150,3 +1150,36 @@
 .app-shell.dark .integration-banner span{color:#a3b9af}
 @media(max-width:1000px){.app-shell .purchase-journey-steps{flex-wrap:wrap}.app-shell .journey-step{flex-basis:calc(33.333% - 10px)}.app-shell .journey-connector{display:none}}
 @media(max-width:600px){.app-shell .purchase-journey{padding:17px}.app-shell .purchase-journey-head{flex-direction:column}.app-shell .purchase-journey-steps{display:grid;grid-template-columns:1fr 1fr}.app-shell .journey-step{flex-basis:auto}.app-shell .journey-foot{align-items:flex-start;flex-direction:column}}
+
+
+/* Decision trail and recommendation transparency */
+.app-shell .ai-research-rejected{margin-top:20px;padding:16px;border:1px solid #e5ebe8;border-radius:10px;background:#f7faf8}
+.app-shell .ai-research-rejected h3{margin:0 0 10px;font-size:12px;color:#23443b}
+.app-shell .ai-research-rejected>div{display:flex;gap:12px;justify-content:space-between;padding:9px 0;border-top:1px solid #e5ebe8;font-size:10px}
+.app-shell .ai-research-rejected strong{color:#345b4e;min-width:130px}
+.app-shell .ai-research-rejected span{color:#70857c;text-align:right;line-height:1.5}
+.app-shell .approval-context{display:flex;flex-direction:column;gap:5px;padding:10px 0;border-top:1px solid var(--border);font-size:11px;line-height:1.55}
+.app-shell .approval-context strong{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.app-shell .approval-context span{color:var(--text)}
+.app-shell .approval-source-link{display:inline-flex;align-items:center;gap:6px;padding:9px 0;color:#087f73;font-size:11px;font-weight:700;text-decoration:none}
+.app-shell .audit-panel{margin-top:18px;padding:20px}
+.app-shell .audit-list{display:flex;flex-direction:column}
+.app-shell .audit-event{display:flex;align-items:flex-start;gap:13px;padding:15px 0;border-top:1px solid var(--border)}
+.app-shell .audit-event-marker{display:grid;place-items:center;width:29px;height:29px;flex:none;border-radius:50%;background:#e8f3ed;color:#087f73}
+.app-shell .audit-event-marker.approved{background:#e4f5eb;color:#16804e}
+.app-shell .audit-event-marker.declined{background:#fff0ed;color:#c05c4c}
+.app-shell .audit-event-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.app-shell .audit-event-copy strong{font-size:11px;color:var(--text)}
+.app-shell .audit-event-copy>span{font-size:10px;color:var(--muted)}
+.app-shell .audit-event-copy small{font-size:9px;color:var(--muted)}
+.app-shell .audit-event-copy p{margin:3px 0 0;font-size:10px;line-height:1.5;color:var(--muted)}
+.app-shell .audit-amount{font-size:11px;color:var(--text);white-space:nowrap}
+.app-shell .audit-rejected{display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:9px 11px;border-radius:7px;background:var(--soft);font-size:9px;color:var(--muted)}
+.app-shell .audit-rejected b{color:var(--text);margin-bottom:2px}
+.app-shell.dark .ai-research-rejected{background:#172b25;border-color:#315047}
+.app-shell.dark .ai-research-rejected h3,.app-shell.dark .ai-research-rejected strong{color:#c9e9db}
+.app-shell.dark .ai-research-rejected>div{border-color:#315047}
+.app-shell.dark .ai-research-rejected span{color:#a3b9af}
+.app-shell.dark .audit-event-marker{background:#21483d;color:#a6e7d4}
+.app-shell.dark .audit-event-marker.approved{background:#1e4a35;color:#8de1ae}
+.app-shell.dark .audit-event-marker.declined{background:#4b2b2a;color:#f2aaa1}
