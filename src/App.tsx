@@ -221,7 +221,9 @@ const App = () => {
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
   };
   const requestApprovalForProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
-    const amount=Number(String(item.price||'').replace(/[^\d.]/g,''));
+    const priceText=String(item.price||'');
+    if(!/(?:₹|\bINR\b|\bRs\.?\s*)/i.test(priceText)){setApiError('The seller price must explicitly show INR (₹ or Rs.) before it can enter your INR budget.');return;}
+    const amount=Number(priceText.replace(/[^\d.]/g,''));
     if(!Number.isFinite(amount)||amount<=0){setApiError('A verified seller price is required before requesting approval.');return;}
     try {
       const chosen=aiResearch?.result.options.find(option=>option.product.toLowerCase()===item.title.toLowerCase());
