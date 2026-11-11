@@ -14,9 +14,10 @@ type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activ
 type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
 type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
 type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];rejectedAlternatives?:{product:string;reason:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } } } }
+declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } }; paypal?: { Buttons: (options:{createOrder:()=>Promise<string>;onApprove:(data:{orderID:string})=>Promise<void>;onCancel?:()=>void;onError:(error:unknown)=>void;style?:{layout?:string;color?:string;shape?:string;label?:string}})=>{render:(element:HTMLElement)=>Promise<void>} } } } }
 type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
 type ShoppingChatTurn = {id:number;role:'user'|'assistant';text:string;time:string};
+type PayPalReceipt = {receiptNumber:string;transactionId:string;merchant:string;item:string;amountINR:number;amountUSD:number;currency:string;paypalOrderId:string;paypalCaptureId:string;capturedAt:string;status:string;note:string};
 
 function PayPilotMark({size=24}:{size?:number}) {
   return <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
@@ -44,6 +45,48 @@ const nav = [
 ];
 const money = (n:number) => '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const budgetFromQuery = (query:string, fallback:number) => { const match=query.match(/(?:under|below|within|max(?:imum)?|budget(?:\s+of)?)\s*(?:₹|rs\.?\s*)?([\d,]+)\s*(k|lakh)?/i); if(!match)return fallback; const amount=Number(match[1].replace(/,/g,'')); return amount*(/k/i.test(match[2]||'')?1000:/lakh/i.test(match[2]||'')?100000:1); };
+function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string;token:string;onCompleted:(receipt:PayPalReceipt)=>void;onError:(message:string)=>void}) {
+  const buttonRef=useRef<HTMLDivElement>(null);
+  const clientId=(import.meta as ImportMeta & {env?:Record<string,string>}).env?.VITE_PAYPAL_CLIENT_ID||'';
+  useEffect(()=>{
+    if(!clientId||!buttonRef.current)return;
+    let cancelled=false;
+    let script:HTMLScriptElement|null=null;
+    const mount=()=>{
+      if(cancelled||!buttonRef.current||!window.paypal)return;
+      window.paypal.Buttons({
+        style:{layout:'vertical',color:'gold',shape:'rect',label:'paypal'},
+        createOrder:async()=>{
+          const result=await apiRequest<{orderID:string}>('/api/paypal/orders',token,{method:'POST',body:JSON.stringify({quoteId})});
+          return result.orderID;
+        },
+        onApprove:async(data)=>{
+          const result=await apiRequest<{status:string;receipt?:PayPalReceipt;message?:string}>('/api/paypal/capture',token,{method:'POST',body:JSON.stringify({orderID:data.orderID})});
+          if(result.status==='COMPLETED'&&result.receipt)onCompleted(result.receipt);
+          else onError(result.message||'PayPal has not confirmed a completed payment. No success receipt was issued.');
+        },
+        onCancel:()=>onError('Checkout was cancelled. No payment was captured.'),
+        onError:(error)=>onError(error instanceof Error?error.message:'PayPal Sandbox checkout encountered an error.'),
+      }).render(buttonRef.current).catch(error=>onError(error instanceof Error?error.message:'Could not load PayPal Sandbox buttons.'));
+    };
+    const existing=document.querySelector<HTMLScriptElement>('script[data-paypilot-paypal-sdk="true"]');
+    if(existing&&window.paypal){mount();}
+    else if(existing){existing.addEventListener('load',mount,{once:true});}
+    else {
+      script=document.createElement('script');
+      script.src='https://www.paypal.com/sdk/js?client-id='+encodeURIComponent(clientId)+'&currency=USD&intent=capture';
+      script.async=true;
+      script.dataset.paypilotPaypalSdk='true';
+      script.onload=mount;
+      script.onerror=()=>onError('PayPal Sandbox SDK could not be loaded.');
+      document.body.appendChild(script);
+    }
+    return ()=>{cancelled=true;if(buttonRef.current)buttonRef.current.replaceChildren();};
+  },[clientId,quoteId,token,onCompleted,onError]);
+  if(!clientId)return <div className="fx-sdk-notice">Add <code>VITE_PAYPAL_CLIENT_ID</code> to the frontend environment to enable the PayPal Sandbox button.</div>;
+  return <div className="paypal-sandbox-button-wrap"><div ref={buttonRef}/><small>Sandbox only · USD checkout · No external retailer order is placed</small></div>;
+}
+
 const App = () => {
   const [page,setPage] = useState<Page>('Overview');
   const [dark,setDark] = usePersistentState('paypilot:dark',false);
@@ -54,8 +97,9 @@ const App = () => {
   const [auditEvents,setAuditEvents] = useState<any[]>([]);
   const [rules,setRules] = useState<Rule[]>([]);
   const [requests,setRequests] = useState<any[]>([]);
-  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect'|'transaction'|'fxQuote';id?:string|number}|null>(null);
+  const [modal,setModal] = useState<{type:'approval'|'rule'|'connect'|'transaction'|'fxQuote'|'receipt';id?:string|number}|null>(null);
   const [fxQuote,setFxQuote] = useState<any>(null);
+  const [receipt,setReceipt] = useState<PayPalReceipt|null>(null);
   const [newRule,setNewRule] = useState({name:'',limit:'5000',description:'',category:'all'});
   const [filter,setFilter] = useState('All');
   const [connected] = useState<string[]>([]);
@@ -204,11 +248,15 @@ const App = () => {
     if(!fxQuote?.id)return;
     try {
       await apiRequest('/api/fx/quotes/'+fxQuote.id+'/accept',apiToken,{method:'POST'});
-      setModal(null);
-      notify('Conversion estimate accepted. PayPal Sandbox checkout is not connected yet; no payment was made.');
-      await refreshWorkspace();
+      setFxQuote((current:any)=>current?{...current,status:'accepted'}:current);
+      notify('Conversion estimate accepted. Continue with PayPal Sandbox checkout below.');
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not accept the conversion estimate.'); }
   };
+  const onSandboxPaymentCompleted = async (value:PayPalReceipt) => {
+    setReceipt(value);setModal({type:'receipt'});notify('PayPal Sandbox capture verified.');
+    await refreshWorkspace();
+  };
+  const onSandboxPaymentError = (message:string) => setApiError(message);
   const decline = async (id:string) => {
     try { await apiRequest('/api/approvals/'+id,apiToken,{method:'PATCH',body:JSON.stringify({decision:'declined'})}); await refreshWorkspace(); setModal(null); notify('Request declined. No payment was made.'); }
     catch(error) { setApiError(error instanceof Error?error.message:'Could not decline request.'); }
@@ -353,7 +401,7 @@ const App = () => {
     </main>
     {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><div className="approval-modal" onClick={e=>e.stopPropagation()}><button className="modal-close icon-button" onClick={()=>setModal(null)}><X size={18}/></button>
       {modal.type==='approval'&&<><div className="modal-icon"><ShieldCheck size={22}/></div><div className="eyebrow">PAYMENT APPROVAL</div><h2>{activeApproval?.name || 'Purchase request'}</h2><p className="modal-subtitle">PayPilot has prepared this purchase. Review the details before deciding.</p><div className="approval-amount">{money(activeApproval?.amount || 0)}</div><div className="modal-detail"><span>Merchant</span><strong>{activeApproval?.merchant || 'Merchant'}</strong></div><div className="modal-detail"><span>Payment method</span><strong>No payment method connected</strong></div><div className="modal-detail"><span>Permission check</span><span className="status-on"><Check size={13}/> {activeApproval?.policyCheck?.withinMonthlyBudget===false?'Needs review':'Within saved rules'}</span></div>{activeApproval?.userGoal&&<div className="approval-context"><strong>Original goal</strong><span>{activeApproval.userGoal}</span></div>}{activeApproval?.recommendationReason&&<div className="approval-context"><strong>Why PayPilot selected this</strong><span>{activeApproval.recommendationReason}</span></div>}{activeApproval?.rejectedAlternatives?.length>0&&<div className="approval-context"><strong>Alternatives not selected</strong>{activeApproval.rejectedAlternatives.map((option:any,i:number)=><span key={i}>{option.product}: {option.reason}</span>)}</div>}{activeApproval?.productUrl&&<a className="approval-source-link" href={activeApproval.productUrl} target="_blank" rel="noreferrer">Review seller listing <ExternalLink size={13}/></a>}<div className="modal-warning"><LockKeyhole size={15}/> Approval records your decision only. It does not initiate or capture a payment.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>void decline(String(modal.id||''))}>Decline</button><button className="primary-button" onClick={()=>void approve(String(modal.id||''))}>Approve request</button></div></>}
-      {modal.type==='fxQuote'&&<><div className="modal-icon"><CreditCard size={22}/></div><div className="eyebrow">INR TO USD CONVERSION</div><h2>Review the exchange-rate estimate</h2><p className="modal-subtitle">Your purchase request is approved. Before any PayPal Sandbox checkout, review the converted amount below.</p><div className="fx-quote-amount"><span>{money(fxQuote?.sourceAmountINR||0)}</span><b>→</b><strong>{new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(fxQuote?.targetAmountUSD||0)}</strong></div><div className="modal-detail"><span>Rate</span><strong>1 USD = ₹{Number(fxQuote?.rateINRPerUSD||0).toFixed(4)}</strong></div><div className="modal-detail"><span>Equivalent rate</span><strong>₹1 = ${Number(fxQuote?.rateUSDPerINR||0).toFixed(6)}</strong></div><div className="modal-detail"><span>Rate source</span><strong>European Central Bank reference rate</strong></div><div className="modal-detail"><span>Rate date</span><strong>{fxQuote?.rateDate||'—'}</strong></div><div className="modal-detail"><span>Quote expires</span><strong>{fxQuote?.expiresAt?new Date(fxQuote.expiresAt).toLocaleTimeString(): '—'}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> This is a verified ECB reference-rate estimate, not a locked PayPal rate or a guarantee of your bank's final charge. PayPal checkout remains a separate, not-yet-enabled step. No payment will be made by accepting this estimate.</div><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Review later</button><button className="primary-button" onClick={()=>void acceptFxQuote()}>Accept conversion estimate</button></div></>}{modal.type==='transaction'&&<><div className="modal-icon"><Activity size={22}/></div><div className="eyebrow">ACCOUNT ACTIVITY</div><h2>{activeTransaction?.name||'Transaction details'}</h2><p className="modal-subtitle">{activeTransaction?.detail||'Activity record from your PayPilot account.'}</p><div className="approval-amount">{money(activeTransaction?.amount||0)}</div><div className="modal-detail"><span>Category</span><strong>{activeTransaction?.category||'—'}</strong></div><div className="modal-detail"><span>Date</span><strong>{activeTransaction?new Date(activeTransaction.date).toLocaleString():'—'}</strong></div><div className="modal-detail"><span>Status</span><strong>{activeTransaction?.status||'—'}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> An approved request is not a completed payment. PayPilot does not process transactions.</div><div className="modal-actions"><button className="primary-button" onClick={()=>setModal(null)}>Close</button></div></>}
+      {modal.type==='fxQuote'&&<><div className="modal-icon"><CreditCard size={22}/></div><div className="eyebrow">INR TO USD CONVERSION</div><h2>Review the exchange-rate estimate</h2><p className="modal-subtitle">Your purchase request is approved. Review the converted amount before the PayPal Sandbox checkout.</p><div className="fx-quote-amount"><span>{money(fxQuote?.sourceAmountINR||0)}</span><b>→</b><strong>{new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(fxQuote?.targetAmountUSD||0)}</strong></div><div className="modal-detail"><span>Rate</span><strong>1 USD = ₹{Number(fxQuote?.rateINRPerUSD||0).toFixed(4)}</strong></div><div className="modal-detail"><span>Equivalent rate</span><strong>₹1 = ${Number(fxQuote?.rateUSDPerINR||0).toFixed(6)}</strong></div><div className="modal-detail"><span>Rate source</span><strong>European Central Bank reference rate</strong></div><div className="modal-detail"><span>Rate date</span><strong>{fxQuote?.rateDate||'—'}</strong></div><div className="modal-detail"><span>Quote expires</span><strong>{fxQuote?.expiresAt?new Date(fxQuote.expiresAt).toLocaleTimeString(): '—'}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> This is an ECB reference-rate estimate, not a locked PayPal rate or a guarantee of your bank's final charge. Sandbox checkout simulates a payment to your PayPilot merchant account, not an order with the external retailer.</div>{fxQuote?.status==='accepted'?<><PayPalSandboxButton quoteId={fxQuote.id} token={apiToken} onCompleted={onSandboxPaymentCompleted} onError={onSandboxPaymentError}/><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Close</button></div></>:<div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Review later</button><button className="primary-button" onClick={()=>void acceptFxQuote()}>Accept conversion estimate</button></div>}</>}{modal.type==='receipt'&&<><div className="modal-icon"><Check size={22}/></div><div className="eyebrow">SANDBOX PAYMENT VERIFIED</div><h2>Payment receipt</h2><p className="modal-subtitle">PayPal returned a completed capture and the server verified its USD amount.</p><div className="approval-amount">{receipt?.receiptNumber||'—'}</div><div className="modal-detail"><span>Item</span><strong>{receipt?.item||'—'}</strong></div><div className="modal-detail"><span>INR purchase value</span><strong>{receipt?money(receipt.amountINR):'—'}</strong></div><div className="modal-detail"><span>Captured USD</span><strong>{receipt?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(receipt.amountUSD):'—'}</strong></div><div className="modal-detail"><span>PayPal capture ID</span><strong>{receipt?.paypalCaptureId||'—'}</strong></div><div className="modal-detail"><span>Captured at</span><strong>{receipt?.capturedAt?new Date(receipt.capturedAt).toLocaleString():'—'}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> {receipt?.note}</div><div className="modal-actions"><button className="primary-button" onClick={()=>{setModal(null);go('Activity');}}>View activity</button></div></>}{modal.type==='transaction'&&<><div className="modal-icon"><Activity size={22}/></div><div className="eyebrow">ACCOUNT ACTIVITY</div><h2>{activeTransaction?.name||'Transaction details'}</h2><p className="modal-subtitle">{activeTransaction?.detail||'Activity record from your PayPilot account.'}</p><div className="approval-amount">{money(activeTransaction?.amount||0)}</div><div className="modal-detail"><span>Category</span><strong>{activeTransaction?.category||'—'}</strong></div><div className="modal-detail"><span>Date</span><strong>{activeTransaction?new Date(activeTransaction.date).toLocaleString():'—'}</strong></div><div className="modal-detail"><span>Status</span><strong>{activeTransaction?.status||'—'}</strong></div><div className="modal-warning"><ShieldCheck size={15}/> An approved request is not a completed payment. PayPilot does not process transactions.</div><div className="modal-actions"><button className="primary-button" onClick={()=>setModal(null)}>Close</button></div></>}
       {modal.type==='rule'&&<><div className="modal-icon"><SlidersHorizontal size={22}/></div><div className="eyebrow">CUSTOM PERMISSION</div><h2>Create a spending rule</h2><p className="modal-subtitle">Define a boundary for your AI shopping assistant.</p><label className="field-label">Rule name<input value={newRule.name} onChange={e=>setNewRule(v=>({...v,name:e.target.value}))} placeholder="e.g. Electronics purchases"/></label><label className="field-label">Description<input value={newRule.description} onChange={e=>setNewRule(v=>({...v,description:e.target.value}))} placeholder="What does this rule cover?"/></label><label className="field-label">Category<select value={newRule.category} onChange={e=>setNewRule(v=>({...v,category:e.target.value}))}><option value="all">All purchases</option><option value="shopping">Shopping</option><option value="Electronics">Electronics</option><option value="Software">Software</option><option value="Books & learning">Books & learning</option><option value="Travel">Travel</option></select></label><label className="field-label">Spending limit (INR)<input type="number" value={newRule.limit} onChange={e=>setNewRule(v=>({...v,limit:e.target.value}))}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" onClick={()=>void addRule()}>Create rule</button></div></>}
     </div></div>}
     {notice&&<div className="toast"><Check size={16}/>{notice}</div>}
