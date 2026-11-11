@@ -6,6 +6,7 @@ const approvalSchema = new mongoose.Schema({
   item: { type: String, required: true, trim: true, maxlength: 180 },
   category: { type: String, default: 'shopping', lowercase: true, trim: true },
   amount: { type: Number, required: true, min: 0.01 },
+  currency: { type: String, enum: ['INR'], default: 'INR' },
   userGoal: { type: String, default: '', maxlength: 240 },
   recommendationSummary: { type: String, default: '', maxlength: 1200 },
   recommendationReason: { type: String, default: '', maxlength: 600 },
