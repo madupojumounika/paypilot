@@ -302,6 +302,7 @@ const App = () => {
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not save product.'); }
   };
   const requestApprovalForProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
+    if(!item.selectionToken){setApiError('PayPilot could not verify this seller price in INR. Choose a listing with verified INR pricing or run a fresh search.');return;}
     const priceText=String(item.price||'');
     if(!/(?:₹|\bINR\b|\bRs\.?\s*)/i.test(priceText)){setApiError('The seller price must explicitly show INR (₹ or Rs.) before it can enter your INR budget.');return;}
     const priceMatch=priceText.match(/(?:₹|\bINR\b|\bRs\.?\s*)([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?)/i);
