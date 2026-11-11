@@ -58,7 +58,7 @@ router.post('/orders', async (req, res, next) => {
     }
 
     const accessToken = await getAccessToken();
-    const requestId = 'paypilot-order-' + transaction.id;
+    const requestId = 'ppord-' + transaction.id;
     const response = await fetch(PAYPAL_API + '/v2/checkout/orders', {
       method: 'POST',
       headers: {
@@ -124,7 +124,7 @@ router.post('/capture', async (req, res, next) => {
       headers: {
         Authorization: 'Bearer ' + accessToken,
         'Content-Type': 'application/json',
-        'PayPal-Request-Id': 'paypilot-capture-' + transaction.id,
+        'PayPal-Request-Id': 'ppcap-' + transaction.id,
       },
       body: '{}',
       signal: AbortSignal.timeout(20000),
