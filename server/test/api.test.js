@@ -21,6 +21,13 @@ test('API health and protected route checks', async (t) => {
   const auditResponse = await fetch(base + '/api/audit');
   assert.equal(auditResponse.status, 401);
 
+  const fxQuoteResponse = await fetch(base + '/api/fx/quotes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ approvalId: '507f1f77bcf86cd799439011' }),
+  });
+  assert.equal(fxQuoteResponse.status, 401);
+
   const assistantResponse = await fetch(base + '/api/assistant/plan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
