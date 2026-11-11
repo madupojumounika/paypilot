@@ -7,7 +7,7 @@ router.use(requireAuth);
 
 function validateRequestedListing(title, query) {
   if (typeof query !== 'string' || !query.trim()) return true;
-  if (/\b(?:case|cover|pouch|carrying case|hard shell|replacement|spare|ear ?pads?|cable|adapter|dongle|holder|stand|mount|sleeve|bag|protector|box only)\b/i.test(title)) return false;
+  if (/\b(?:case for|case only|protective case|hard case|cover|pouch|carrying case|hard shell|replacement|spare|ear ?pads?|cable|adapter|dongle|holder|stand|mount|sleeve|bag|protector|box only)\b/i.test(title)) return false;
   const normalize = value => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const modelIds = query.match(/\b(?=[a-z0-9-]*\d)[a-z]{1,8}[- ]?[a-z0-9-]{2,}\b/gi) || [];
   if (modelIds.length && !modelIds.some(model => normalize(title).includes(normalize(model)))) return false;
