@@ -498,6 +498,13 @@ router.post('/plan', async (req, res) => {
     });
     if (!verifiedProducts.length) result.options = [];
 
+    const fallbackResult = buildSearchFallback(query, searchResults, productsWithImages, budget);
+    if (!Array.isArray(result.criteria)) result.criteria = fallbackResult.criteria;
+    result.criteria = result.criteria.filter(item => item && typeof item.label === 'string' && typeof item.importance === 'string').slice(0, 8);
+    if (!Array.isArray(result.questions)) result.questions = fallbackResult.questions;
+    result.questions = result.questions.filter(question => typeof question === 'string').slice(0, 6);
+    if (typeof result.summary !== 'string' || !result.summary.trim()) result.summary = fallbackResult.summary;
+    if (typeof result.safetyNote !== 'string' || !result.safetyNote.trim()) result.safetyNote = fallbackResult.safetyNote;
     if (!Array.isArray(result.rejectedAlternatives)) result.rejectedAlternatives = [];
     result.rejectedAlternatives = result.rejectedAlternatives.slice(0, 5).filter(option => option && typeof option.product === 'string' && typeof option.reason === 'string');
 
