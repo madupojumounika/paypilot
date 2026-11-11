@@ -10,6 +10,7 @@ import assistantRoutes from './routes/assistant.js';
 import savedProductRoutes from './routes/savedProducts.js';
 import auditRoutes from './routes/audit.js';
 import fxRoutes from './routes/fx.js';
+import paypalRoutes from './routes/paypal.js';
 
 const app = express();
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',').map(value => value.trim());
@@ -29,6 +30,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/saved-products', savedProductRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/fx', fxRoutes);
+app.use('/api/paypal', paypalRoutes);
 app.use('/api/assistant', rateLimit({ windowMs: 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false }), assistantRoutes);
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((error, _req, res, _next) => {
