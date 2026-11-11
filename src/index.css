@@ -1201,3 +1201,23 @@
 
 .app-shell .status-badge.failed{background:#fff0ed;color:#b94d3f}
 .app-shell.dark .status-badge.failed{background:#4b2b2a;color:#f2aaa1}
+
+
+/* Verified seller comparison */
+.ai-comparison{margin:24px 0 8px;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--panel)}
+.ai-comparison-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.ai-comparison-heading h3{margin:5px 0 4px;font-size:17px;color:var(--text)}
+.ai-comparison-heading p,.ai-comparison-note{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.ai-comparison-heading>span{flex-shrink:0;padding:6px 10px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:700}
+.ai-comparison-scroll{overflow-x:auto;width:100%}
+.ai-comparison table{width:100%;min-width:690px;border-collapse:collapse;text-align:left}
+.ai-comparison th{padding:11px 12px;color:var(--muted);font-size:10px;letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.ai-comparison td{padding:14px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);vertical-align:top}
+.ai-comparison td:first-child{min-width:190px;max-width:260px}
+.ai-comparison td:first-child strong,.ai-comparison td:first-child small{display:block}
+.ai-comparison td:first-child strong{font-size:12px;line-height:1.5}
+.ai-comparison td:first-child small{margin-top:4px;color:var(--muted);line-height:1.45}
+.ai-comparison-note{margin-top:12px}
+.compare-good{color:#16865b;font-weight:700}
+.compare-warning{color:#b7791f;font-weight:700}
+@media(max-width:700px){.ai-comparison{padding:15px;margin-top:18px}.ai-comparison-heading{flex-direction:column;gap:8px}}
