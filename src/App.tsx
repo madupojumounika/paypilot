@@ -14,7 +14,28 @@ type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activ
 type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'; initials:string; tone:string; category:string };
 type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
 type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];rejectedAlternatives?:{product:string;reason:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
-declare global { interface Window { google?: { accounts: { id: { initialize: (config:{client_id:string;callback:(response:{credential:string})=>void;auto_select?:boolean})=>void; renderButton:(element:HTMLElement,options:{theme?:string;size?:string;text?:string;shape?:string;width?:number})=>void; cancel:()=>void } } }; paypal?: { Buttons: (options:{createOrder:()=>Promise<string>;onApprove:(data:{orderID:string})=>Promise<void>;onCancel?:()=>void;onError:(error:unknown)=>void;style?:{layout?:string;color?:string;shape?:string;label?:string}})=>{render:(element:HTMLElement)=>Promise<void>} } } } }
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: { client_id: string; callback: (response: { credential: string }) => void; auto_select?: boolean }) => void;
+          renderButton: (element: HTMLElement, options: { theme?: string; size?: string; text?: string; shape?: string; width?: number }) => void;
+          cancel: () => void;
+        };
+      };
+    };
+    paypal?: {
+      Buttons: (options: {
+        createOrder: () => Promise<string>;
+        onApprove: (data: { orderID: string }) => Promise<void>;
+        onCancel?: () => void;
+        onError: (error: unknown) => void;
+        style?: { layout?: string; color?: string; shape?: string; label?: string };
+      }) => { render: (element: HTMLElement) => Promise<void> };
+    };
+  }
+}
 type SavedProduct = {id:string;title:string;url:string;merchant:string;image:string|null;price:string|null;description:string|null};
 type ShoppingChatTurn = {id:number;role:'user'|'assistant';text:string;time:string};
 type PayPalReceipt = {receiptNumber:string;transactionId:string;merchant:string;item:string;amountINR:number;amountUSD:number;currency:string;paypalOrderId:string;paypalCaptureId:string;capturedAt:string;status:string;note:string};
