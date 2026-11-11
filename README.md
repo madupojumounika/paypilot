@@ -116,9 +116,16 @@ PayPal Checkout Orders v2 must be called from the backend; the browser only rend
 
 ## Important integration status
 
-This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Free AI research can be enabled by setting `OPENROUTER_API_KEY`, `OPENROUTER_MODEL=openrouter/free`, and `TAVILY_API_KEY` on the server. OpenRouter free models and Tavily free credits are rate/usage limited; check their current terms. Guest and signed-in users can call the public research endpoint. PayPal environment variables are placeholders only. Set `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` only on the API server, and set the same public client ID as `VITE_PAYPAL_CLIENT_ID` on the frontend. The API is hard-pinned to PayPal Sandbox and cannot call the live PayPal host. A Sandbox capture pays the configured PayPilot merchant Sandbox account; it does not place an order with the external retailer.
+PayPilot's core research-to-checkout workflow is implemented and connected to the authenticated API. Product research uses Tavily seller-page discovery plus OpenRouter analysis; seller candidates are restricted to individual product URLs on supported retailer domains and checked against the requested product/model. AI product candidates are shown only when they map back to a verified seller listing. Product images are optional, and seller prices are displayed only when the seller page exposes a parseable price and currency. The comparison view ranks verified INR offers and checks them against the user's budget; it does not estimate missing prices or guarantee stock, shipping, warranty or final checkout totals.
 
-Before enabling real integrations, the frontend must be connected to authenticated API endpoints, live product data must come from trusted merchant/provider sources, and PayPal sandbox checkout must be implemented and tested with explicit user confirmation before any capture endpoint can be called. Never commit secrets or production credentials.
+The following environment configuration is still required to use all integrations:
+- Server: `MONGODB_URI`, a long random `JWT_SECRET`, `OPENROUTER_API_KEY`, `TAVILY_API_KEY`, `PAYPAL_CLIENT_ID`, and `PAYPAL_CLIENT_SECRET`.
+- Frontend: `VITE_PAYPAL_CLIENT_ID`; optional Google sign-in uses `VITE_GOOGLE_CLIENT_ID` and the matching server-side `GOOGLE_CLIENT_ID`.
+- Keep all secrets in the server environment or ignored local `.env` file. Never put the PayPal secret, AI provider keys, database URI or JWT secret in frontend variables or Git.
+
+PayPal is hard-pinned to Sandbox. The backend creates orders, verifies captures and issues receipts only after a completed capture with the expected USD amount. INR purchases require a separately disclosed ECB reference-rate estimate and explicit acceptance before checkout; the reference rate is not a locked PayPal or bank rate. A Sandbox capture pays the configured PayPilot merchant Sandbox account and does not place an order with Amazon, Flipkart or another external retailer.
+
+The CI workflow runs the frontend TypeScript build, backend JavaScript syntax checks and API smoke tests. A successful CI run verifies compilation and the smoke-test suite; it does not replace end-to-end testing with configured MongoDB, AI-search and PayPal Sandbox credentials. Live seller pages can block automated extraction or change their data, so users must confirm final price, stock, warranty, delivery and seller details on the merchant website.
 
 ## Build
 
