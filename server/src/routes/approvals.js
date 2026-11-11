@@ -17,9 +17,9 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { merchant, item, category = 'shopping', amount, userGoal = '', recommendationSummary = '', recommendationReason = '', rejectedAlternatives = [], productUrl = '', productImage = '' } = req.body || {};
+    const { merchant, item, category = 'shopping', amount, currency = 'INR', userGoal = '', recommendationSummary = '', recommendationReason = '', rejectedAlternatives = [], productUrl = '', productImage = '' } = req.body || {};
     const value = Number(amount);
-    if (typeof merchant !== 'string' || !merchant.trim() || typeof item !== 'string' || !item.trim() || !Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Merchant, item and a positive amount are required.' });
+    if (typeof merchant !== 'string' || !merchant.trim() || typeof item !== 'string' || !item.trim() || currency !== 'INR' || !Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Merchant, item and a positive amount are required.' });
 
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'Account not found.' });
@@ -36,7 +36,7 @@ router.post('/', async (req, res, next) => {
     ]);
     if ((monthly[0]?.total || 0) + value > user.monthlyBudget) return res.status(403).json({ error: 'This request exceeds your monthly budget.' });
 
-    const approval = await Approval.create({ userId: req.userId, merchant: merchant.trim(), item: item.trim(), category, amount: value, userGoal: String(userGoal).slice(0, 240), recommendationSummary: String(recommendationSummary).slice(0, 1200), recommendationReason: String(recommendationReason).slice(0, 600), rejectedAlternatives: Array.isArray(rejectedAlternatives) ? rejectedAlternatives.slice(0, 5).map(option => ({ product: String(option.product || '').slice(0, 180), reason: String(option.reason || '').slice(0, 400) })) : [], productUrl: typeof productUrl === 'string' && /^https:\/\//i.test(productUrl) ? productUrl.slice(0, 1000) : '', productImage: typeof productImage === 'string' && /^https:\/\//i.test(productImage) ? productImage.slice(0, 1000) : '', budgetAtRequest: user.monthlyBudget, policyCheck: { withinMonthlyBudget: true, matchedRules: matchingRules.map(rule => ({ name: rule.name, limit: rule.limit, spentBeforeRequest: rule.spent })), checkedAt: new Date() } });
+    const approval = await Approval.create({ userId: req.userId, merchant: merchant.trim(), item: item.trim(), category, amount: value, currency: 'INR', userGoal: String(userGoal).slice(0, 240), recommendationSummary: String(recommendationSummary).slice(0, 1200), recommendationReason: String(recommendationReason).slice(0, 600), rejectedAlternatives: Array.isArray(rejectedAlternatives) ? rejectedAlternatives.slice(0, 5).map(option => ({ product: String(option.product || '').slice(0, 180), reason: String(option.reason || '').slice(0, 400) })) : [], productUrl: typeof productUrl === 'string' && /^https:\/\//i.test(productUrl) ? productUrl.slice(0, 1000) : '', productImage: typeof productImage === 'string' && /^https:\/\//i.test(productImage) ? productImage.slice(0, 1000) : '', budgetAtRequest: user.monthlyBudget, policyCheck: { withinMonthlyBudget: true, matchedRules: matchingRules.map(rule => ({ name: rule.name, limit: rule.limit, spentBeforeRequest: rule.spent })), checkedAt: new Date() } });
     await AuditEvent.create({ userId: req.userId, action: 'purchase.requested', entityType: 'approval', entityId: approval._id, details: { goal: approval.userGoal, product: approval.item, merchant: approval.merchant, amount: approval.amount, budgetAtRequest: approval.budgetAtRequest, policyCheck: approval.policyCheck, recommendationReason: approval.recommendationReason, rejectedAlternatives: approval.rejectedAlternatives } });
     return res.status(201).json({ approval, message: 'Request queued. No payment has been initiated.' });
   } catch (error) { return next(error); }
