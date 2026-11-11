@@ -136,6 +136,49 @@ function looksLikeCategoryResult(item) {
     || /\/content\/|\/collection\/|\/category\/|\/categories\/|\/search\/|\/filter\//i.test(item.url || '');
 }
 
+function normalizeProductText(value = '') {
+  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isAccessoryTitle(title = '') {
+  return /\\b(?:case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\\b/i.test(String(title));
+}
+
+function matchesRequestedProduct(title = '', query = '') {
+  const cleanTitle = normalizeProductText(title);
+  const cleanQuery = normalizeProductText(query);
+  if (!cleanTitle || !cleanQuery || isAccessoryTitle(title)) return false;
+
+  // A model number in the request is a strong identifier: require it in the listing title.
+  const modelIds = String(query).match(/\\b(?=[a-z0-9-]*\\d)[a-z]{1,8}[- ]?[a-z0-9-]{2,}\\b/gi) || [];
+  if (modelIds.length) {
+    const matchedModel = modelIds.some(model => cleanTitle.includes(normalizeProductText(model)));
+    if (!matchedModel) return false;
+  }
+
+  const categoryGroups = [
+    { query: /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i, title: /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i },
+    { query: /\\b(laptops?|notebooks?)\\b/i, title: /\\b(laptops?|notebooks?)\\b/i },
+    { query: /\\b(smartphones?|mobiles?|phones?)\\b/i, title: /\\b(smartphones?|mobiles?|phones?)\\b/i },
+    { query: /\\b(tablets?)\\b/i, title: /\\b(tablets?)\\b/i },
+    { query: /\\b(monitors?)\\b/i, title: /\\b(monitors?)\\b/i },
+    { query: /\\b(keyboards?)\\b/i, title: /\\b(keyboards?)\\b/i },
+    { query: /\\b(mice|mouse)\\b/i, title: /\\b(mice|mouse)\\b/i },
+    { query: /\\b(speakers?)\\b/i, title: /\\b(speakers?)\\b/i },
+    { query: /\\b(watches?)\\b/i, title: /\\b(watches?)\\b/i },
+    { query: /\\b(cameras?)\\b/i, title: /\\b(cameras?)\\b/i },
+  ];
+  const category = categoryGroups.find(group => group.query.test(query));
+  if (category && !category.title.test(title)) return false;
+
+  if (modelIds.length) return true;
+  const ignored = new Set(['the','for','with','and','under','below','within','budget','amazon','india','flipkart','croma','wireless','bluetooth','noise','cancelling','active','buy','price','best','new']);
+  const words = cleanQuery.split(' ').filter(word => word.length > 2 && !ignored.has(word));
+  if (!words.length) return true;
+  const matched = words.filter(word => cleanTitle.includes(word)).length;
+  return matched >= Math.min(2, words.length);
+}
+
 function merchantName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
@@ -190,7 +233,7 @@ async function fillMissingProductImages(products) {
   }
 }
 
-async function enrichShoppingPages(searchResults) {
+async function enrichShoppingPages(searchResults, query) {
   const candidates = searchResults.filter(item => {
     try {
       const host = new URL(item.url).hostname.replace(/^www\./, '');
@@ -231,6 +274,7 @@ async function enrichShoppingPages(searchResults) {
       const resolvedImage = structured?.image || image;
       const resolvedDescription = structured?.description || description;
       if (resolvedTitle) product.title = decodeHtml(resolvedTitle.replace(/<[^>]+>/g, '')).slice(0, 220);
+      if (!matchesRequestedProduct(product.title, query)) return null;
       if (resolvedImage) {
         try {
           const imageUrl = new URL(resolvedImage, item.url);
@@ -328,7 +372,7 @@ router.post('/plan', async (req, res) => {
     // Enrich seller pages while the free AI provider is working. If AI is slow or unavailable,
     // the verified seller data can still be returned as a useful source-based result.
     const productWork = (async () => {
-      const products = await enrichShoppingPages(searchResults);
+      const products = await enrichShoppingPages(searchResults, query);
       return (await fillMissingProductImages(products)).filter(product => Boolean(product.image));
     })().catch(error => {
       console.warn('Seller page enrichment was incomplete:', error.message);
