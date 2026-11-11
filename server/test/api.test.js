@@ -18,6 +18,9 @@ test('API health and protected route checks', async (t) => {
   const rulesResponse = await fetch(base + '/api/rules');
   assert.equal(rulesResponse.status, 401);
 
+  const auditResponse = await fetch(base + '/api/audit');
+  assert.equal(auditResponse.status, 401);
+
   const assistantResponse = await fetch(base + '/api/assistant/plan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
