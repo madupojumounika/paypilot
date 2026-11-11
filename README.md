@@ -29,7 +29,8 @@ PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit u
 - Express API with MongoDB/Mongoose models.
 - Account registration and email/password login using bcrypt password hashing and signed JWTs.
 - Google ID-token verification against the configured Google OAuth client ID; Google-verified email addresses are stored as passwordless accounts.
-- Authenticated spending-rule, approval and transaction endpoints.
+- Authenticated spending-rule, approval, transaction and append-only audit-trail endpoints.
+- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as audit events.
 - Approval requests are checked against enabled spending rules and the user's monthly budget.
 - OpenRouter-powered AI shopping research with Tavily web search. Both keys stay on the server; the AI receives search results and returns source links.
 - An approval creates an `approved_pending_payment` record only. **It does not create a PayPal order, authorize a card, or capture a payment.**
@@ -96,6 +97,7 @@ The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The 
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
 | PATCH | `/api/approvals/:id` | Approve or decline a pending request |
 | GET | `/api/transactions` | List the signed-in user's activity |
+| GET | `/api/audit` | Read the signed-in user's append-only purchase decision trail |
 | POST | `/api/assistant/plan` | Run guest-accessible AI shopping research (OpenRouter + Tavily keys required) |
 
 Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
