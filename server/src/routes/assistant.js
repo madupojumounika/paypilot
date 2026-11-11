@@ -300,7 +300,7 @@ async function enrichShoppingPages(searchResults, query) {
       const parsed = new URL(product.url);
       parsed.hash = '';
       parsed.search = '';
-      const key = parsed.href.replace(/\\/$/, '');
+      const key = parsed.href.replace(/\/$/, '');
       const existing = unique.get(key);
       const score = value => (value.price ? 2 : 0) + (value.image ? 1 : 0) + (value.description ? 1 : 0);
       if (!existing || score(product) > score(existing)) unique.set(key, product);
@@ -313,25 +313,25 @@ function buildSearchFallback(query, searchResults, products, budget) {
   const summary = products.length
     ? 'The free AI model did not return a usable comparison. PayPilot found ' + products.length + ' individual product page' + (products.length === 1 ? '' : 's') + ' that passed its listing checks. Seller-page prices are shown only when the merchant exposes them; missing prices and specifications are not estimated.'
     : 'The free AI model did not return a usable comparison, and the search did not produce a verifiable individual product page for “' + query + '”. PayPilot has hidden category pages, buying guides and generic search pages instead of presenting them as products. Try a more specific model or retailer search.';
-  const criteria = /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i.test(query)
+  const criteria = /\b(headphones?|headsets?|earbuds?|earphones?)\b/i.test(query)
     ? [
         { label: 'Match the exact headphone model and confirm active noise cancellation', importance: 'must-have' },
         { label: 'Compare battery life, comfort, microphone and supported audio features', importance: 'must-have' },
         { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
       ]
-    : /\\b(laptops?|notebooks?)\\b/i.test(query)
+    : /\b(laptops?|notebooks?)\b/i.test(query)
       ? [
           { label: 'Compare processor generation, RAM and SSD capacity', importance: 'must-have' },
           { label: 'Check display quality, battery life, keyboard and upgrade options', importance: 'must-have' },
           { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
         ]
-      : /\\b(keyboards?)\\b/i.test(query)
+      : /\b(keyboards?)\b/i.test(query)
         ? [
             { label: 'Compare keyboard layout, switch type and typing feel', importance: 'must-have' },
             { label: 'Check wired or wireless connectivity, compatibility and build quality', importance: 'must-have' },
             { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
           ]
-        : /\\b(smartphones?|mobiles?|phones?)\\b/i.test(query)
+        : /\b(smartphones?|mobiles?|phones?)\b/i.test(query)
           ? [
               { label: 'Compare exact model, processor, RAM and storage', importance: 'must-have' },
               { label: 'Check display, camera, battery and software support', importance: 'must-have' },
@@ -343,7 +343,7 @@ function buildSearchFallback(query, searchResults, products, budget) {
               { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
             ];
   const options = products.map(product => {
-    const priceMatch = String(product.price || '').match(/(?:₹|\\bINR\\b|\\bRs\\.?\\s*)([\\d,]+(?:\\.\\d{1,2})?)/i);
+    const priceMatch = String(product.price || '').match(/(?:₹|\bINR\b|\bRs\.?\\s*)([\d,]+(?:\.\d{1,2})?)/i);
     const amount = priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : null;
     const withinBudget = Number.isFinite(amount) && Number(budget) > 0 && amount <= Number(budget);
     return {
