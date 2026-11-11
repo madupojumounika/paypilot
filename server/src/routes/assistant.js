@@ -373,7 +373,7 @@ router.post('/plan', async (req, res) => {
     // the verified seller data can still be returned as a useful source-based result.
     const productWork = (async () => {
       const products = await enrichShoppingPages(searchResults, query);
-      return (await fillMissingProductImages(products)).filter(product => Boolean(product.image));
+      return await fillMissingProductImages(products);
     })().catch(error => {
       console.warn('Seller page enrichment was incomplete:', error.message);
       return [];
@@ -432,6 +432,21 @@ router.post('/plan', async (req, res) => {
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
+    // AI-written candidates are suggestions, not seller evidence. Keep only options
+    // that map to a product page independently verified above, and use seller metadata
+    // for the displayed merchant and price.
+    const verifiedProducts = productsWithImages;
+    result.options = (Array.isArray(result.options) ? result.options : []).flatMap(option => {
+      const candidate = normalizeProductText(option?.product || '');
+      if (!candidate) return [];
+      const match = verifiedProducts.find(product => {
+        const title = normalizeProductText(product.title);
+        return candidate === title || candidate.includes(title) || title.includes(candidate);
+      });
+      return match ? [{ ...option, product: match.title, merchant: match.merchant, price: match.price || null, verification: match.price ? 'verified' : 'unverified' }] : [];
+    });
+    if (!verifiedProducts.length) result.options = [];
+
     if (!Array.isArray(result.rejectedAlternatives)) result.rejectedAlternatives = [];
     result.rejectedAlternatives = result.rejectedAlternatives.slice(0, 5).filter(option => option && typeof option.product === 'string' && typeof option.reason === 'string');
 
