@@ -4,6 +4,7 @@ import Approval from '../models/Approval.js';
 import SpendingRule from '../models/SpendingRule.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
+import AuditEvent from '../models/AuditEvent.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -16,7 +17,7 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { merchant, item, category = 'shopping', amount } = req.body || {};
+    const { merchant, item, category = 'shopping', amount, userGoal = '', recommendationSummary = '', recommendationReason = '', rejectedAlternatives = [], productUrl = '', productImage = '' } = req.body || {};
     const value = Number(amount);
     if (typeof merchant !== 'string' || !merchant.trim() || typeof item !== 'string' || !item.trim() || !Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Merchant, item and a positive amount are required.' });
 
@@ -35,7 +36,8 @@ router.post('/', async (req, res, next) => {
     ]);
     if ((monthly[0]?.total || 0) + value > user.monthlyBudget) return res.status(403).json({ error: 'This request exceeds your monthly budget.' });
 
-    const approval = await Approval.create({ userId: req.userId, merchant: merchant.trim(), item: item.trim(), category, amount: value });
+    const approval = await Approval.create({ userId: req.userId, merchant: merchant.trim(), item: item.trim(), category, amount: value, userGoal: String(userGoal).slice(0, 240), recommendationSummary: String(recommendationSummary).slice(0, 1200), recommendationReason: String(recommendationReason).slice(0, 600), rejectedAlternatives: Array.isArray(rejectedAlternatives) ? rejectedAlternatives.slice(0, 5).map(option => ({ product: String(option.product || '').slice(0, 180), reason: String(option.reason || '').slice(0, 400) })) : [], productUrl: typeof productUrl === 'string' && /^https:\/\//i.test(productUrl) ? productUrl.slice(0, 1000) : '', productImage: typeof productImage === 'string' && /^https:\/\//i.test(productImage) ? productImage.slice(0, 1000) : '', budgetAtRequest: user.monthlyBudget, policyCheck: { withinMonthlyBudget: true, matchedRules: matchingRules.map(rule => ({ name: rule.name, limit: rule.limit, spentBeforeRequest: rule.spent })), checkedAt: new Date() } });
+    await AuditEvent.create({ userId: req.userId, action: 'purchase.requested', entityType: 'approval', entityId: approval._id, details: { goal: approval.userGoal, product: approval.item, merchant: approval.merchant, amount: approval.amount, budgetAtRequest: approval.budgetAtRequest, policyCheck: approval.policyCheck, recommendationReason: approval.recommendationReason, rejectedAlternatives: approval.rejectedAlternatives } });
     return res.status(201).json({ approval, message: 'Request queued. No payment has been initiated.' });
   } catch (error) { return next(error); }
 });
@@ -79,6 +81,7 @@ router.patch('/:id', async (req, res, next) => {
       } else {
         await Transaction.create([{ userId: req.userId, approvalId: approval._id, merchant: approval.merchant, item: approval.item, category: approval.category, amount: approval.amount, status: 'declined', paymentExecuted: false }], { session });
       }
+      await AuditEvent.create([{ userId: req.userId, action: decision === 'approved' ? 'purchase.approved' : 'purchase.declined', entityType: 'approval', entityId: approval._id, details: { product: approval.item, merchant: approval.merchant, amount: approval.amount, decision, policyCheck: approval.policyCheck, paymentCaptured: false } }], { session });
       response = { status: 200, body: { approval, message: decision === 'approved' ? 'Approved for the next checkout step. No payment was captured.' : 'Request declined. No payment was made.' } };
     });
     return res.status(response?.status || 200).json(response?.body || {});
