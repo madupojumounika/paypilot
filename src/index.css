@@ -1221,3 +1221,5 @@
 .compare-good{color:#16865b;font-weight:700}
 .compare-warning{color:#b7791f;font-weight:700}
 @media(max-width:700px){.ai-comparison{padding:15px;margin-top:18px}.ai-comparison-heading{flex-direction:column;gap:8px}}
+
+.guest-purchase-cta{display:block;margin-top:9px;text-align:left}
