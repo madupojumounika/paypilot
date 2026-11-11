@@ -300,7 +300,7 @@ async function enrichShoppingPages(searchResults, query) {
       const parsed = new URL(product.url);
       parsed.hash = '';
       parsed.search = '';
-      const key = parsed.href.replace(/\/$/, '');
+      const key = parsed.origin + parsed.pathname;
       const existing = unique.get(key);
       const score = value => (value.price ? 2 : 0) + (value.image ? 1 : 0) + (value.description ? 1 : 0);
       if (!existing || score(product) > score(existing)) unique.set(key, product);
