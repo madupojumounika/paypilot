@@ -343,7 +343,7 @@ function buildSearchFallback(query, searchResults, products, budget) {
               { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
             ];
   const options = products.map(product => {
-    const priceMatch = String(product.price || '').match(/(?:₹|\bINR\b|\bRs\.?\\s*)([\d,]+(?:\.\d{1,2})?)/i);
+    const priceMatch = String(product.price || '').match(/(?:₹|\bINR\b|\bRs\.?\s*)([\d,]+(?:\.\d{1,2})?)/i);
     const amount = priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : null;
     const withinBudget = Number.isFinite(amount) && Number(budget) > 0 && amount <= Number(budget);
     return {
