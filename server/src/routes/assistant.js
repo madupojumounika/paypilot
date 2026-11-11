@@ -294,24 +294,75 @@ async function enrichShoppingPages(searchResults, query) {
     }
     return product;
   }));
-  return enriched.filter(Boolean);
+  const unique = new Map();
+  for (const product of enriched.filter(Boolean)) {
+    try {
+      const parsed = new URL(product.url);
+      parsed.hash = '';
+      parsed.search = '';
+      const key = parsed.href.replace(/\\/$/, '');
+      const existing = unique.get(key);
+      const score = value => (value.price ? 2 : 0) + (value.image ? 1 : 0) + (value.description ? 1 : 0);
+      if (!existing || score(product) > score(existing)) unique.set(key, product);
+    } catch {}
+  }
+  return [...unique.values()];
 }
 
 function buildSearchFallback(query, searchResults, products, budget) {
   const summary = products.length
-    ? 'The free AI model did not return a usable comparison. PayPilot found ' + products.length + ' individual product page' + (products.length === 1 ? '' : 's') + ' that passed its listing checks. Prices and stock are shown only when the seller page exposes them.'
+    ? 'The free AI model did not return a usable comparison. PayPilot found ' + products.length + ' individual product page' + (products.length === 1 ? '' : 's') + ' that passed its listing checks. Seller-page prices are shown only when the merchant exposes them; missing prices and specifications are not estimated.'
     : 'The free AI model did not return a usable comparison, and the search did not produce a verifiable individual product page for “' + query + '”. PayPilot has hidden category pages, buying guides and generic search pages instead of presenting them as products. Try a more specific model or retailer search.';
+  const criteria = /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i.test(query)
+    ? [
+        { label: 'Match the exact headphone model and confirm active noise cancellation', importance: 'must-have' },
+        { label: 'Compare battery life, comfort, microphone and supported audio features', importance: 'must-have' },
+        { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
+      ]
+    : /\\b(laptops?|notebooks?)\\b/i.test(query)
+      ? [
+          { label: 'Compare processor generation, RAM and SSD capacity', importance: 'must-have' },
+          { label: 'Check display quality, battery life, keyboard and upgrade options', importance: 'must-have' },
+          { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
+        ]
+      : /\\b(keyboards?)\\b/i.test(query)
+        ? [
+            { label: 'Compare keyboard layout, switch type and typing feel', importance: 'must-have' },
+            { label: 'Check wired or wireless connectivity, compatibility and build quality', importance: 'must-have' },
+            { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
+          ]
+        : /\\b(smartphones?|mobiles?|phones?)\\b/i.test(query)
+          ? [
+              { label: 'Compare exact model, processor, RAM and storage', importance: 'must-have' },
+              { label: 'Check display, camera, battery and software support', importance: 'must-have' },
+              { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
+            ]
+          : [
+              { label: 'Match the exact product model and compare its key specifications', importance: 'must-have' },
+              { label: 'Confirm the final selling price, delivery and return policy', importance: 'must-have' },
+              { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
+            ];
+  const options = products.map(product => {
+    const priceMatch = String(product.price || '').match(/(?:₹|\\bINR\\b|\\bRs\\.?\\s*)([\\d,]+(?:\\.\\d{1,2})?)/i);
+    const amount = priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : null;
+    const withinBudget = Number.isFinite(amount) && Number(budget) > 0 && amount <= Number(budget);
+    return {
+      product: product.title,
+      merchant: product.merchant,
+      price: product.price || null,
+      reason: amount !== null
+        ? (withinBudget ? 'The seller page exposes an INR price within your stated budget. Compare the product specifications and confirm delivery, warranty and returns before choosing.' : Number(budget) > 0 && amount > Number(budget) ? 'The seller page exposes an INR price above your stated budget. Check whether another verified seller offer is available.' : 'The seller page exposes an INR price. Confirm product specifications, delivery, warranty and returns before choosing.')
+        : 'The individual seller page passed product matching, but it did not expose a verifiable INR price. Open the seller page to confirm the offer before making a decision.',
+      verification: amount !== null ? 'verified' : 'unverified',
+    };
+  });
   return {
     summary: summary + (budget ? ' Your budget: ₹' + Number(budget).toLocaleString('en-IN') + '.' : ''),
-    criteria: [
-      { label: 'Compare the exact model, processor, memory and display specifications', importance: 'must-have' },
-      { label: 'Confirm the final selling price, delivery and return policy', importance: 'must-have' },
-      { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
-    ],
-    options: [],
+    criteria,
+    options,
     rejectedAlternatives: [],
-    questions: products.length ? ['Open each seller page to confirm its current offer and availability.'] : ['Try a specific model such as Lenovo IdeaPad Slim 5, ASUS Vivobook 15 or HP Pavilion 14.', 'You can also include a preferred seller such as Amazon, Flipkart or Croma.'],
-    safetyNote: 'Seller pages and metadata can change. Confirm the exact model, final price, warranty and availability on the merchant website. No purchase has been made.',
+    questions: products.length ? ['Open each seller page to confirm the live price, stock, delivery, warranty and returns.'] : ['Try a specific model or include a preferred seller such as Amazon, Flipkart or Croma.'],
+    safetyNote: 'Seller pages and metadata can change. Product specifications, delivery, taxes, warranty and stock must be confirmed with the merchant. No purchase has been made.',
   };
 }
 
