@@ -319,7 +319,7 @@ router.post('/plan', async (req, res) => {
       'If a price or merchant is not clearly present in the sources, return null and mark the option unverified.',
       'Do not initiate checkout, request payment credentials, or claim that a payment has happened.',
       'Return only a JSON object with this shape:',
-      '{"summary":"string","criteria":[{"label":"string","importance":"must-have or nice-to-have"}],"options":[{"product":"string","merchant":"string or null","price":"string or null","reason":"string","verification":"verified or unverified"}],"questions":["string"],"safetyNote":"string"}',
+      '{"summary":"string","criteria":[{"label":"string","importance":"must-have or nice-to-have"}],"options":[{"product":"string","merchant":"string or null","price":"string or null","reason":"string","verification":"verified or unverified"}],"rejectedAlternatives":[{"product":"string","reason":"string grounded in supplied sources"}],"questions":["string"],"safetyNote":"string"}',
       'Search results: ' + JSON.stringify(searchResults),
       'User request: ' + query,
     ].join('\n');
