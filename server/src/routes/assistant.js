@@ -141,7 +141,7 @@ function normalizeProductText(value = '') {
 }
 
 function isAccessoryTitle(title = '') {
-  return /\b(?:case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\b/i.test(String(title));
+  return /\b(?:case for|case only|protective case|hard case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\b/i.test(String(title));
 }
 
 function matchesRequestedProduct(title = '', query = '') {
