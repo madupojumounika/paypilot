@@ -28,6 +28,12 @@ test('API health and protected route checks', async (t) => {
   });
   assert.equal(fxQuoteResponse.status, 401);
 
+  const paypalOrderResponse = await fetch(base + '/api/paypal/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quoteId: '507f1f77bcf86cd799439011' }) });
+  assert.equal(paypalOrderResponse.status, 401);
+
+  const paypalCaptureResponse = await fetch(base + '/api/paypal/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderID: 'SANDBOX-ORDER' }) });
+  assert.equal(paypalCaptureResponse.status, 401);
+
   const assistantResponse = await fetch(base + '/api/assistant/plan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
