@@ -111,7 +111,7 @@ const App = () => {
         setSavedProducts(savedData.products.map(p=>({id:p._id,title:p.title,url:p.url,merchant:p.merchant,image:p.image,price:p.price,description:p.description})));
         setRequests(approvalData.approvals.map(a=>({id:a._id,name:a.item,detail:a.merchant+' · '+a.category,amount:a.amount,kind:a.category,icon:(a.merchant||'P').slice(0,1).toUpperCase(),tone:'amber',merchant:a.merchant,status:a.status,createdAt:a.createdAt,userGoal:a.userGoal,recommendationSummary:a.recommendationSummary,recommendationReason:a.recommendationReason,rejectedAlternatives:a.rejectedAlternatives,productUrl:a.productUrl,budgetAtRequest:a.budgetAtRequest,policyCheck:a.policyCheck})));
         setRules(ruleData.rules.map(r=>({id:r._id,name:r.name,description:r.description,category:r.category,limit:r.limit,spent:r.spent,enabled:r.enabled})));
-        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
+        setTx(transactionData.transactions.map(t=>({id:t._id,name:t.merchant,detail:t.item,date:t.createdAt,amount:t.amount,status:t.paymentStatus==='COMPLETED'?'Completed':t.status==='payment_pending'?'Pending':t.status==='approved_pending_payment'?'Approved':'Declined',initials:(t.merchant||'P').slice(0,1).toUpperCase(),tone:'slate',category:t.category})));
       } catch (error) {
         if (active) setApiError(error instanceof Error ? error.message : 'Could not load your account data.');
       }
@@ -164,8 +164,9 @@ const App = () => {
   const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
   const chartDays = range==='This week'?7:range==='This month'?new Date().getDate():30;
   const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:chartDays},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-chartDays+1+index);const key=date.toDateString();return {day:chartDays===7?date.toLocaleDateString(undefined,{weekday:'short'}):date.toLocaleDateString(undefined,{month:'short',day:'numeric'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx,chartDays]);
-  const availableBudget = Math.max(0,monthlyBudget-committedAmount);
-  const budgetUsed = monthlyBudget>0?Math.min(100,committedAmount/monthlyBudget*100):0;
+  const totalBudgetUsed = spentAmount + committedAmount;
+  const availableBudget = Math.max(0,monthlyBudget-totalBudgetUsed);
+  const budgetUsed = monthlyBudget>0?Math.min(100,totalBudgetUsed/monthlyBudget*100):0;
   const pendingCount = requests.filter(a=>a.status==='pending').length;
   const activeApproval = modal?.type==='approval' ? requests.find(a=>a.id===modal.id) : undefined;
   const activeTransaction = modal?.type==='transaction' ? tx.find(t=>t.id===modal.id) : undefined;
