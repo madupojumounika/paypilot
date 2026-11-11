@@ -380,7 +380,7 @@ router.post('/plan', async (req, res) => {
     }
     const productsWithImages = (await productWork).map(product => {
       if (!product.price?.startsWith('₹') || !process.env.JWT_SECRET) return product;
-      const amountINR = Number(product.price.replace(/[^\\d.]/g, ''));
+      const amountINR = Number(product.price.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(amountINR) || amountINR <= 0) return product;
       const selectionToken = jwt.sign({ type: 'purchase_selection', title: product.title, url: product.url, merchant: product.merchant, amountINR, currency: 'INR' }, process.env.JWT_SECRET, { expiresIn: '15m' });
       return { ...product, selectionToken };
