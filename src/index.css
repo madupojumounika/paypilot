@@ -1198,3 +1198,6 @@
 .app-shell .paypal-sandbox-button-wrap small{display:block;margin-top:9px;text-align:center;color:var(--muted);font-size:9px}
 .app-shell .fx-sdk-notice{margin:18px 0;padding:13px;border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-size:11px;line-height:1.6}
 .app-shell .fx-sdk-notice code{color:var(--text);font-weight:700}
+
+.app-shell .status-badge.failed{background:#fff0ed;color:#b94d3f}
+.app-shell.dark .status-badge.failed{background:#4b2b2a;color:#f2aaa1}
