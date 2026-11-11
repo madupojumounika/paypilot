@@ -304,8 +304,9 @@ const App = () => {
   const requestApprovalForProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
     const priceText=String(item.price||'');
     if(!/(?:₹|\bINR\b|\bRs\.?\s*)/i.test(priceText)){setApiError('The seller price must explicitly show INR (₹ or Rs.) before it can enter your INR budget.');return;}
-    const amount=Number(priceText.replace(/[^\d.]/g,''));
-    if(!Number.isFinite(amount)||amount<=0){setApiError('A verified seller price is required before requesting approval.');return;}
+    const priceMatch=priceText.match(/(?:₹|\bINR\b|\bRs\.?\s*)([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?)/i);
+    const amount=Number((priceMatch?.[1]||priceMatch?.[2]||'').replace(/,/g,''));
+    if(!Number.isFinite(amount)||amount<=0){setApiError('A verified INR seller price is required before requesting approval.');return;}
     try {
       const chosen=aiResearch?.result.options.find(option=>option.product.toLowerCase()===item.title.toLowerCase());
       await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:'shopping',amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR'})});
