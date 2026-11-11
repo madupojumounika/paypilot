@@ -97,14 +97,14 @@ The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The 
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
 | PATCH | `/api/approvals/:id` | Approve or decline a pending request |
 | GET | `/api/transactions` | List the signed-in user's activity |
-| GET | `/api/audit` | Read the signed-in user's append-only purchase decision trail |
+| GET | `/api/audit` | Read the signed-in user's append-only purchase and conversion decision trail |\n| POST | `/api/fx/quotes` | Create a server-verified INR to USD ECB reference-rate estimate for an approved purchase |\n| POST | `/api/fx/quotes/:id/accept` | Record explicit acceptance of a still-valid conversion estimate |
 | POST | `/api/assistant/plan` | Run guest-accessible AI shopping research (OpenRouter + Tavily keys required) |
 
 Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
 
 ## Purchase workflow and PayPal Sandbox status
 
-The signed-in Overview now presents the intended agentic-commerce flow: describe a goal, compare sourced products, enforce backend spending rules, obtain explicit human approval, then proceed to payment verification. The first four stages have partial working foundations. The final PayPal Sandbox checkout, capture verification, receipt generation, and append-only audit trail are not implemented yet. Do not represent an approved request as a completed payment.
+The signed-in Overview now presents the intended agentic-commerce flow: describe a goal, compare sourced products, enforce backend spending rules, obtain explicit human approval, then proceed to payment verification. The first four stages have partial working foundations. The INR-to-USD conversion estimate is fetched server-side from ECB reference rates via Frankfurter, stored with its source date and five-minute confirmation window, and presented after purchase approval. Users must explicitly accept the estimate; both quote creation and acceptance are recorded in the audit trail. The estimate is not a locked PayPal rate. PayPal Sandbox checkout, capture verification, receipt generation, and payment outcome events are not implemented yet. Do not represent an approved request as a completed payment.
 
 PayPal Checkout Orders v2 must be called from the backend; the browser only renders the PayPal SDK button and receives the payer approval callback. PayPal's current supported payment-currency list does not include INR. Because PayPilot's product budgets and seller prices are in INR, checkout must not silently submit an INR amount or relabel it as USD. A future sandbox flow must obtain a disclosed conversion quote, show the exact USD checkout amount and rate to the user, enforce the original INR budget on the server, and store both amounts and the quote with the receipt. Sandbox checkout also simulates a payment to the configured PayPal sandbox merchant account; it does not place an order with an external retailer.
 
