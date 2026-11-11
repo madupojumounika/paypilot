@@ -31,7 +31,7 @@ router.post('/', async (req, res, next) => {
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
     const monthly = await Transaction.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(req.userId), status: 'approved_pending_payment', createdAt: { $gte: monthStart } } },
+      { $match: { userId: new mongoose.Types.ObjectId(req.userId), status: { $in: ['approved_pending_payment', 'payment_pending', 'payment_completed'] }, createdAt: { $gte: monthStart } } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
     if ((monthly[0]?.total || 0) + value > user.monthlyBudget) return res.status(403).json({ error: 'This request exceeds your monthly budget.' });
