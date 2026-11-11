@@ -230,7 +230,7 @@ const App = () => {
   const filteredTx = useMemo(()=>tx.filter(t=>(t.name+' '+t.detail+' '+t.category).toLowerCase().includes(query.toLowerCase()) && (filter==='All'||t.status===filter)),[tx,query,filter]);
   const monthlyBudget = Math.max(0,Number(budget)||0);
   const spentAmount = tx.filter(t=>t.status==='Completed').reduce((sum,t)=>sum+t.amount,0);
-  const committedAmount = tx.filter(t=>t.status==='Approved').reduce((sum,t)=>sum+t.amount,0);
+  const committedAmount = tx.filter(t=>t.status==='Approved'||t.status==='Pending').reduce((sum,t)=>sum+t.amount,0);
   const chartDays = range==='This week'?7:range==='This month'?new Date().getDate():30;
   const spendingChart = useMemo(()=>{const today=new Date();return Array.from({length:chartDays},(_,index)=>{const date=new Date(today);date.setDate(today.getDate()-chartDays+1+index);const key=date.toDateString();return {day:chartDays===7?date.toLocaleDateString(undefined,{weekday:'short'}):date.toLocaleDateString(undefined,{month:'short',day:'numeric'}),amount:tx.filter(item=>item.status==='Approved'&&new Date(item.date).toDateString()===key).reduce((sum,item)=>sum+item.amount,0)};});},[tx,chartDays]);
   const totalBudgetUsed = spentAmount + committedAmount;
