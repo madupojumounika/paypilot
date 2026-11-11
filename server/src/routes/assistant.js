@@ -264,6 +264,7 @@ function buildSearchFallback(query, searchResults, products, budget) {
       { label: 'Check seller reputation, warranty and stock before deciding', importance: 'nice-to-have' },
     ],
     options: [],
+    rejectedAlternatives: [],
     questions: products.length ? ['Open each seller page to confirm its current offer and availability.'] : ['Try a specific model such as Lenovo IdeaPad Slim 5, ASUS Vivobook 15 or HP Pavilion 14.', 'You can also include a preferred seller such as Amazon, Flipkart or Croma.'],
     safetyNote: 'Seller pages and metadata can change. Confirm the exact model, final price, warranty and availability on the merchant website. No purchase has been made.',
   };
@@ -380,6 +381,8 @@ router.post('/plan', async (req, res) => {
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
+    if (!Array.isArray(result.rejectedAlternatives)) result.rejectedAlternatives = [];
+    result.rejectedAlternatives = result.rejectedAlternatives.slice(0, 5).filter(option => option && typeof option.product === 'string' && typeof option.reason === 'string');
 
         const productUrls = new Set(productsWithImages.map(product => product.url));
     const safeSources = searchResults
