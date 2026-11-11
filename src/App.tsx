@@ -50,6 +50,14 @@ function PayPilotMark({size=24}:{size?:number}) {
 }
 
 
+function purchaseCategoryFor(title:string, query:string):string {
+  const value=String(title)+' '+String(query);
+  if(/\b(book|textbook|notebook)\b/i.test(value)) return 'books & learning';
+  if(/\b(software|license|subscription|saas)\b/i.test(value)) return 'software';
+  if(/\b(flight|hotel|travel|ticket)\b/i.test(value)) return 'travel';
+  if(/\b(laptop|computer|headphone|headset|earbud|phone|smartphone|tablet|monitor|keyboard|mouse|speaker|camera|watch)\b/i.test(value)) return 'electronics';
+  return 'shopping';
+}
 function verifiedINRPrice(price:string|null|undefined):number|null {
   if(!price || !/(?:₹|\bINR\b|\bRs\.?)/i.test(price)) return null;
   const match=price.match(/(?:₹|\bINR\b|\bRs\.?\s*)([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?)/i);
@@ -325,7 +333,7 @@ const App = () => {
     if(!Number.isFinite(amount)||amount<=0){setApiError('A verified INR seller price is required before requesting approval.');return;}
     try {
       const chosen=aiResearch?.result.options.find(option=>option.product.toLowerCase()===item.title.toLowerCase());
-      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:/\\b(book|textbook|notebook)\\b/i.test(item.title+' '+productSearch)?'books & learning':/\\b(software|license|subscription|saas)\\b/i.test(item.title+' '+productSearch)?'software':/\\b(flight|hotel|travel|ticket)\\b/i.test(item.title+' '+productSearch)?'travel':/\\b(laptop|computer|headphone|headset|earbud|phone|smartphone|tablet|monitor|keyboard|mouse|speaker|camera|watch)\\b/i.test(item.title+' '+productSearch)?'electronics':'shopping',amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR',selectionToken:item.selectionToken})});
+      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:purchaseCategoryFor(item.title,productSearch),amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR',selectionToken:item.selectionToken})});
       await refreshWorkspace();go('Approvals');notify('Purchase request submitted for your review. No payment was made.');
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not submit purchase request.'); }
   };
