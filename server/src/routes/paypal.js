@@ -52,7 +52,10 @@ router.post('/orders', async (req, res, next) => {
     if (!transaction) return res.status(409).json({ error: 'No unpaid approved purchase is available for checkout.' });
     if (Math.abs(transaction.amount - quote.sourceAmountINR) > 0.01) return res.status(409).json({ error: 'The conversion estimate does not match the approved INR amount.' });
     if (transaction.paymentStatus === 'COMPLETED' || transaction.paymentExecuted) return res.status(409).json({ error: 'This purchase has already been paid.' });
-    if (transaction.paypalOrderId) return res.json({ orderID: transaction.paypalOrderId, amountUSD: amountString(transaction.amountUSD), currency: 'USD', reused: true });
+    if (transaction.paypalOrderId) {
+      if (String(transaction.fxQuoteId) !== String(quote._id)) return res.status(409).json({ error: 'A PayPal order already exists for a different conversion estimate. Complete or resolve that order before requesting another checkout.' });
+      return res.json({ orderID: transaction.paypalOrderId, amountUSD: amountString(transaction.amountUSD), currency: 'USD', reused: true });
+    }
 
     const accessToken = await getAccessToken();
     const requestId = 'paypilot-order-' + transaction.id;
