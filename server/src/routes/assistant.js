@@ -141,7 +141,7 @@ function normalizeProductText(value = '') {
 }
 
 function isAccessoryTitle(title = '') {
-  return /\\b(?:case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\\b/i.test(String(title));
+  return /\b(?:case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\b/i.test(String(title));
 }
 
 function matchesRequestedProduct(title = '', query = '') {
@@ -150,23 +150,23 @@ function matchesRequestedProduct(title = '', query = '') {
   if (!cleanTitle || !cleanQuery || isAccessoryTitle(title)) return false;
 
   // A model number in the request is a strong identifier: require it in the listing title.
-  const modelIds = String(query).match(/\\b(?=[a-z0-9-]*\\d)[a-z]{1,8}[- ]?[a-z0-9-]{2,}\\b/gi) || [];
+  const modelIds = String(query).match(/\b(?=[a-z0-9-]*\d)[a-z]{1,8}[- ]?[a-z0-9-]{2,}\b/gi) || [];
   if (modelIds.length) {
     const matchedModel = modelIds.some(model => cleanTitle.includes(normalizeProductText(model)));
     if (!matchedModel) return false;
   }
 
   const categoryGroups = [
-    { query: /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i, title: /\\b(headphones?|headsets?|earbuds?|earphones?)\\b/i },
-    { query: /\\b(laptops?|notebooks?)\\b/i, title: /\\b(laptops?|notebooks?)\\b/i },
-    { query: /\\b(smartphones?|mobiles?|phones?)\\b/i, title: /\\b(smartphones?|mobiles?|phones?)\\b/i },
-    { query: /\\b(tablets?)\\b/i, title: /\\b(tablets?)\\b/i },
-    { query: /\\b(monitors?)\\b/i, title: /\\b(monitors?)\\b/i },
-    { query: /\\b(keyboards?)\\b/i, title: /\\b(keyboards?)\\b/i },
-    { query: /\\b(mice|mouse)\\b/i, title: /\\b(mice|mouse)\\b/i },
-    { query: /\\b(speakers?)\\b/i, title: /\\b(speakers?)\\b/i },
-    { query: /\\b(watches?)\\b/i, title: /\\b(watches?)\\b/i },
-    { query: /\\b(cameras?)\\b/i, title: /\\b(cameras?)\\b/i },
+    { query: /\b(headphones?|headsets?|earbuds?|earphones?)\b/i, title: /\b(headphones?|headsets?|earbuds?|earphones?)\b/i },
+    { query: /\b(laptops?|notebooks?)\b/i, title: /\b(laptops?|notebooks?)\b/i },
+    { query: /\b(smartphones?|mobiles?|phones?)\b/i, title: /\b(smartphones?|mobiles?|phones?)\b/i },
+    { query: /\b(tablets?)\b/i, title: /\b(tablets?)\b/i },
+    { query: /\b(monitors?)\b/i, title: /\b(monitors?)\b/i },
+    { query: /\b(keyboards?)\b/i, title: /\b(keyboards?)\b/i },
+    { query: /\b(mice|mouse)\b/i, title: /\b(mice|mouse)\b/i },
+    { query: /\b(speakers?)\b/i, title: /\b(speakers?)\b/i },
+    { query: /\b(watches?)\b/i, title: /\b(watches?)\b/i },
+    { query: /\b(cameras?)\b/i, title: /\b(cameras?)\b/i },
   ];
   const category = categoryGroups.find(group => group.query.test(query));
   if (category && !category.title.test(title)) return false;
