@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 const router = Router();
 
 function extractJson(raw) {
@@ -99,7 +100,7 @@ function readStructuredProduct(html) {
             image: typeof imageValue === 'string' ? imageValue : imageValue?.url || imageValue?.contentUrl || '',
             description: typeof node.description === 'string' ? node.description : '',
             price: offer?.price || offer?.lowPrice || '',
-            currency: offer?.priceCurrency || 'INR',
+            currency: offer?.priceCurrency || '',
           };
         }
       }
@@ -221,7 +222,7 @@ async function enrichShoppingPages(searchResults) {
       const image = metaContent(html, 'og:image') || metaContent(html, 'twitter:image') || readProductImage(html, item.url);
       const description = metaContent(html, 'og:description') || metaContent(html, 'description');
       const price = metaContent(html, 'product:price:amount') || metaContent(html, 'og:price:amount') || structured?.price;
-      const currency = metaContent(html, 'product:price:currency') || structured?.currency || 'INR';
+      const currency = metaContent(html, 'product:price:currency') || structured?.currency || '';
       const isStructuredProduct = Boolean(structured?.title);
       const isOpenGraphProduct = metaContent(html, 'og:type').toLowerCase() === 'product';
       if (!isProductPageUrl(item.url)) return null;
@@ -239,7 +240,7 @@ async function enrichShoppingPages(searchResults) {
       }
       if (resolvedDescription) product.description = decodeHtml(resolvedDescription).slice(0, 260);
       const numericPrice = String(price ?? '').replace(/[^\d.]/g, '');
-      if (numericPrice && /^\d+(?:\.\d+)?$/.test(numericPrice) && Number(numericPrice) > 0) {
+      if (numericPrice && /^\d+(?:\.\d+)?$/.test(numericPrice) && Number(numericPrice) > 0 && currency) {
         const formatted = Number(numericPrice).toLocaleString('en-IN');
         product.price = currency.toUpperCase() === 'INR' ? '₹' + formatted : currency.toUpperCase() + ' ' + formatted;
       }
@@ -377,7 +378,13 @@ router.post('/plan', async (req, res) => {
       try { result = extractJson(raw); }
       catch { usedFallback = true; }
     }
-    const productsWithImages = await productWork;
+    const productsWithImages = (await productWork).map(product => {
+      if (!product.price?.startsWith('₹') || !process.env.JWT_SECRET) return product;
+      const amountINR = Number(product.price.replace(/[^\\d.]/g, ''));
+      if (!Number.isFinite(amountINR) || amountINR <= 0) return product;
+      const selectionToken = jwt.sign({ type: 'purchase_selection', title: product.title, url: product.url, merchant: product.merchant, amountINR, currency: 'INR' }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      return { ...product, selectionToken };
+    });
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
