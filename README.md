@@ -30,7 +30,8 @@ PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit u
 - Account registration and email/password login using bcrypt password hashing and signed JWTs.
 - Google ID-token verification against the configured Google OAuth client ID; Google-verified email addresses are stored as passwordless accounts.
 - Authenticated spending-rule, approval, transaction and append-only audit-trail endpoints.
-- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as append-only audit events and shown in Activity.\n- Seller INR prices are only approved when the API can issue a short-lived signed selection token from seller-page metadata; the approval API verifies the product, seller, URL and amount rather than trusting a client-edited price.
+- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as append-only audit events and shown in Activity.
+- Seller INR prices are only approved when the API can issue a short-lived signed selection token from seller-page metadata; the approval API verifies the product, seller, URL and amount rather than trusting a client-edited price.
 - Approval requests are checked against enabled spending rules and the user's monthly budget.
 - OpenRouter-powered AI shopping research with Tavily web search. Both keys stay on the server; the AI receives search results and returns source links.
 - An approval creates an `approved_pending_payment` record only. **It does not create a PayPal order, authorize a card, or capture a payment.**
@@ -97,7 +98,12 @@ The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The 
 | GET / POST | `/api/approvals` | List requests or submit a purchase request |
 | PATCH | `/api/approvals/:id` | Approve or decline a pending request |
 | GET | `/api/transactions` | List the signed-in user's activity |
-| GET | `/api/audit` | Read the signed-in user's append-only purchase and conversion decision trail |\n| POST | `/api/fx/quotes` | Create a server-verified INR to USD ECB reference-rate estimate for an approved purchase |\n| POST | `/api/fx/quotes/:id/accept` | Record explicit acceptance of a still-valid conversion estimate |\n| POST | `/api/paypal/orders` | Create an idempotent PayPal Sandbox order from an accepted INR-to-USD estimate |\n| POST | `/api/paypal/capture` | Capture only after buyer approval and verify the returned USD amount server-side |\n| GET | `/api/paypal/receipt/:transactionId` | Retrieve a receipt only for a verified completed capture |
+| GET | `/api/audit` | Read the signed-in user's append-only purchase and conversion decision trail |
+| POST | `/api/fx/quotes` | Create a server-verified INR to USD ECB reference-rate estimate for an approved purchase |
+| POST | `/api/fx/quotes/:id/accept` | Record explicit acceptance of a still-valid conversion estimate |
+| POST | `/api/paypal/orders` | Create an idempotent PayPal Sandbox order from an accepted INR-to-USD estimate |
+| POST | `/api/paypal/capture` | Capture only after buyer approval and verify the returned USD amount server-side |
+| GET | `/api/paypal/receipt/:transactionId` | Retrieve a receipt only for a verified completed capture |
 | POST | `/api/assistant/plan` | Run guest-accessible AI shopping research (OpenRouter + Tavily keys required) |
 
 Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
