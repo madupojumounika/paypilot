@@ -30,7 +30,7 @@ PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit u
 - Account registration and email/password login using bcrypt password hashing and signed JWTs.
 - Google ID-token verification against the configured Google OAuth client ID; Google-verified email addresses are stored as passwordless accounts.
 - Authenticated spending-rule, approval, transaction and append-only audit-trail endpoints.
-- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as append-only audit events and shown in Activity.
+- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as append-only audit events and shown in Activity.\n- Seller INR prices are only approved when the API can issue a short-lived signed selection token from seller-page metadata; the approval API verifies the product, seller, URL and amount rather than trusting a client-edited price.
 - Approval requests are checked against enabled spending rules and the user's monthly budget.
 - OpenRouter-powered AI shopping research with Tavily web search. Both keys stay on the server; the AI receives search results and returns source links.
 - An approval creates an `approved_pending_payment` record only. **It does not create a PayPal order, authorize a card, or capture a payment.**
