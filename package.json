@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "server:dev": "node --watch server/src/index.js",
     "server:start": "node server/src/index.js",
-    "check:server": "node --check server/src/index.js && node --check server/src/app.js && node --check server/src/config/db.js && node --check server/src/middleware/auth.js && node --check server/src/models/User.js && node --check server/src/models/SpendingRule.js && node --check server/src/models/Approval.js && node --check server/src/models/AuditEvent.js && node --check server/src/models/Transaction.js && node --check server/src/routes/auth.js && node --check server/src/routes/rules.js && node --check server/src/routes/approvals.js && node --check server/src/routes/audit.js && node --check server/src/routes/transactions.js && node --check server/src/routes/assistant.js",
+    "check:server": "node --check server/src/index.js && node --check server/src/app.js && node --check server/src/config/db.js && node --check server/src/middleware/auth.js && node --check server/src/models/User.js && node --check server/src/models/SpendingRule.js && node --check server/src/models/Approval.js && node --check server/src/models/AuditEvent.js && node --check server/src/models/Transaction.js && node --check server/src/routes/auth.js && node --check server/src/routes/rules.js && node --check server/src/routes/approvals.js && node --check server/src/routes/audit.js && node --check server/src/routes/fx.js && node --check server/src/models/FxQuote.js && node --check server/src/routes/transactions.js && node --check server/src/routes/assistant.js",
     "test:server": "node --test server/test/*.test.js"
   },
   "dependencies": {
