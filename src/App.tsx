@@ -13,7 +13,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 type Page = 'Overview' | 'AI Shopping' | 'Saved products' | 'Approvals' | 'Activity' | 'Spending rules' | 'Integrations' | 'Settings';
 type Tx = { id:string; name:string; detail:string; amount:number; date:string; status:'Completed'|'Pending'|'Approved'|'Declined'|'Failed'; initials:string; tone:string; category:string };
 type Rule = { id:string; name:string; description:string; category:string; limit:number; spent:number; enabled:boolean };
-type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];rejectedAlternatives?:{product:string;reason:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string}[];sources:{title:string;url:string}[];note:string };
+type AiResearch = { provider?:string; result:{summary:string;criteria:{label:string;importance:string}[];options:{product:string;merchant:string|null;price:string|null;reason:string;verification:string}[];rejectedAlternatives?:{product:string;reason:string}[];questions:string[];safetyNote:string};products?:{title:string;url:string;image:string|null;description:string|null;price:string|null;merchant:string;selectionToken?:string}[];sources:{title:string;url:string}[];note:string };
 declare global {
   interface Window {
     google?: {
@@ -309,7 +309,7 @@ const App = () => {
     if(!Number.isFinite(amount)||amount<=0){setApiError('A verified INR seller price is required before requesting approval.');return;}
     try {
       const chosen=aiResearch?.result.options.find(option=>option.product.toLowerCase()===item.title.toLowerCase());
-      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:'shopping',amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR'})});
+      await apiRequest('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:'shopping',amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR',selectionToken:item.selectionToken})});
       await refreshWorkspace();go('Approvals');notify('Purchase request submitted for your review. No payment was made.');
     } catch(error) { setApiError(error instanceof Error?error.message:'Could not submit purchase request.'); }
   };
