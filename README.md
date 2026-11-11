@@ -100,6 +100,12 @@ The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The 
 
 Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
 
+## Purchase workflow and PayPal Sandbox status
+
+The signed-in Overview now presents the intended agentic-commerce flow: describe a goal, compare sourced products, enforce backend spending rules, obtain explicit human approval, then proceed to payment verification. The first four stages have partial working foundations. The final PayPal Sandbox checkout, capture verification, receipt generation, and append-only audit trail are not implemented yet. Do not represent an approved request as a completed payment.
+
+PayPal Checkout Orders v2 must be called from the backend; the browser only renders the PayPal SDK button and receives the payer approval callback. PayPal's current supported payment-currency list does not include INR. Because PayPilot's product budgets and seller prices are in INR, checkout must not silently submit an INR amount or relabel it as USD. A future sandbox flow must obtain a disclosed conversion quote, show the exact USD checkout amount and rate to the user, enforce the original INR budget on the server, and store both amounts and the quote with the receipt. Sandbox checkout also simulates a payment to the configured PayPal sandbox merchant account; it does not place an order with an external retailer.
+
 ## Important integration status
 
 This is an actively developed prototype, not a live banking or payment product. The dashboard currently runs in local demo mode; the API foundation is separate and is not yet wired into every dashboard screen. The catalogue is sample data, not live merchant pricing. Free AI research can be enabled by setting `OPENROUTER_API_KEY`, `OPENROUTER_MODEL=openrouter/free`, and `TAVILY_API_KEY` on the server. OpenRouter free models and Tavily free credits are rate/usage limited; check their current terms. Guest and signed-in users can call the public research endpoint. PayPal environment variables are placeholders only. No real payment is possible in the current implementation.
