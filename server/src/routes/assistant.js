@@ -258,7 +258,7 @@ async function enrichShoppingPages(searchResults, query) {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PayPilotResearch/1.0)', 'Accept': 'text/html,application/xhtml+xml' },
         signal: AbortSignal.timeout(5500),
       });
-      if (!response.ok) return isProductPageUrl(item.url) ? product : null;
+      if (!response.ok) return isProductPageUrl(item.url) && matchesRequestedProduct(fallbackTitle, query) ? product : null;
       const html = (await response.text()).slice(0, 1200000);
       const structured = readStructuredProduct(html);
       const title = metaContent(html, 'og:title') || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
@@ -290,7 +290,7 @@ async function enrichShoppingPages(searchResults, query) {
       }
     } catch {
       // Keep only specific product URLs when a merchant blocks fetching.
-      return isProductPageUrl(item.url) ? product : null;
+      return isProductPageUrl(item.url) && matchesRequestedProduct(fallbackTitle, query) ? product : null;
     }
     return product;
   }));
