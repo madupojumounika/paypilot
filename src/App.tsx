@@ -115,9 +115,11 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
     if(!clientId||!buttonRef.current)return;
     let cancelled=false;
     let script:HTMLScriptElement|null=null;
+    let buttons:{close:()=>Promise<void>}|null=null;
     const mount=()=>{
-      if(cancelled||!buttonRef.current||!window.paypal)return;
-      window.paypal.Buttons({
+      const container=buttonRef.current;
+      if(cancelled||!container||!container.isConnected||!window.paypal)return;
+      buttons=window.paypal.Buttons({
         style:{layout:'vertical',color:'gold',shape:'rect',label:'paypal'},
         createOrder:async()=>{
           const result=await apiRequest<{orderID:string}>('/api/paypal/orders',token,{method:'POST',body:JSON.stringify({quoteId})});
@@ -130,7 +132,10 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
         },
         onCancel:()=>errorRef.current('Checkout was cancelled. No payment was captured.'),
         onError:(error)=>errorRef.current(error instanceof Error?error.message:'PayPal Sandbox checkout encountered an error.'),
-      }).render(buttonRef.current).catch(error=>errorRef.current(error instanceof Error?error.message:'Could not load PayPal Sandbox buttons.'));
+      });
+      buttons.render(container).catch(error=>{
+        if(!cancelled)errorRef.current(error instanceof Error?error.message:'Could not load PayPal Sandbox buttons.');
+      });
     };
     const existing=document.querySelector<HTMLScriptElement>('script[data-paypilot-paypal-sdk="true"]');
     if(existing&&window.paypal){mount();}
@@ -144,7 +149,15 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
       script.onerror=()=>errorRef.current('PayPal Sandbox SDK could not be loaded.');
       document.body.appendChild(script);
     }
-    return ()=>{cancelled=true;if(buttonRef.current)buttonRef.current.replaceChildren();};
+    return ()=>{
+      cancelled=true;
+      // Let the PayPal SDK dispose of its own iframe/button DOM. Do not call
+      // replaceChildren(): PayPal may still be using this container.
+      const activeButtons=buttons;
+      if(activeButtons){
+        void activeButtons.close().catch(()=>undefined);
+      }
+    };
   },[clientId,quoteId,token]);
   if(!clientId)return <div className="fx-sdk-notice">Add <code>VITE_PAYPAL_CLIENT_ID</code> to the frontend environment to enable the PayPal Sandbox button.</div>;
   return <div className="paypal-sandbox-button-wrap"><div ref={buttonRef}/><small>Sandbox only · USD checkout · No external retailer order is placed</small></div>;
