@@ -144,6 +144,11 @@ function isAccessoryTitle(title = '') {
   return /\b(?:case for|case only|protective case|hard case|cover|pouch|carry(?:ing)? case|hard shell|protective shell|replacement|spare|ear ?pads?|ear cushions?|headband cushion|cable|charging cable|adapter|dongle|holder|stand|mount|skin|sleeve|bag|protector|screen guard|decorative|storage box|box only)\b/i.test(String(title));
 }
 
+function isLowQualityProductTitle(title = '') {
+  return /\bproduct\s+title\s+variations?\b|\btitle\s+variations?\s*[_-]?[a-z0-9]+/i.test(String(title))
+    || /(?:^|\s)_[a-z0-9]{2,5}\b/i.test(String(title));
+}
+
 function matchesRequestedProduct(title = '', query = '') {
   const cleanTitle = normalizeProductText(title);
   const cleanQuery = normalizeProductText(query);
@@ -239,7 +244,8 @@ async function enrichShoppingPages(searchResults, query) {
       const host = new URL(item.url).hostname.replace(/^www\./, '');
       return ['amazon.in','flipkart.com','croma.com','reliancedigital.in','vijaysales.com','lenovo.com','hp.com','dell.com','asus.com','acer.com'].includes(host)
         && isProductPageUrl(item.url)
-        && !looksLikeCategoryResult(item);
+        && !looksLikeCategoryResult(item)
+        && !isLowQualityProductTitle(item.title);
     } catch { return false; }
   }).slice(0, 6);
 
@@ -274,7 +280,7 @@ async function enrichShoppingPages(searchResults, query) {
       const resolvedImage = structured?.image || image;
       const resolvedDescription = structured?.description || description;
       if (resolvedTitle) product.title = decodeHtml(resolvedTitle.replace(/<[^>]+>/g, '')).slice(0, 220);
-      if (!matchesRequestedProduct(product.title, query)) return null;
+      if (isLowQualityProductTitle(product.title) || !matchesRequestedProduct(product.title, query)) return null;
       if (resolvedImage) {
         try {
           const imageUrl = new URL(resolvedImage, item.url);
