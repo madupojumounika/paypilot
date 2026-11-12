@@ -1297,3 +1297,11 @@
 .app-shell.dark .shopping-next-step{background:#182c27;border-color:#315047;border-left-color:#65c7ad}
 .app-shell.dark .shopping-next-step strong{color:#e3f2eb}
 @media(max-width:700px){.app-shell .shopping-next-step{align-items:flex-start;flex-direction:column}}
+
+
+/* Colour variants stay under one product instead of inflating the shortlist. */
+.app-shell .ai-variant-list{display:flex;flex-direction:column;gap:8px;margin:10px 0;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.app-shell .ai-variant-heading{font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.app-shell .ai-variant-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text)}
+.app-shell .ai-variant-row .text-action{flex:none}
+.app-shell .ai-variant-row .ai-product-view-link{flex:none}
