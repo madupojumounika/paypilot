@@ -1,137 +1,497 @@
-# PayPilot AI
+<div align="center">
 
-**Intelligent commerce. Human-controlled payments.**
+# ✦ PayPilot AI
 
-PayPilot AI is a fintech SaaS prototype for AI-assisted shopping with explicit user-controlled purchase approvals. It separates research and purchase preparation from payment execution.
+### Your AI shopping copilot. Your budget. Your final decision.
 
-## Product principles
+**An AI-assisted purchasing command center built around transparent research, budget guardrails, explicit human approval, and verified sandbox payments.**
 
-- Help users compare purchase options and understand costs.
-- Enforce user-defined budgets and spending boundaries before a request enters the approval queue.
-- Require an explicit human decision for every purchase request.
-- Never allow the assistant to capture or transfer money.
-- Keep demo data clearly separated from real financial activity.
+<p>
+  <a href="https://github.com/madupojumounika/paypilot"><img src="https://img.shields.io/badge/Project-PayPilot%20AI-2563EB?style=for-the-badge&logo=github&logoColor=white" alt="PayPilot AI"></a>
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express">
+  <img src="https://img.shields.io/badge/MongoDB-8-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB">
+  <img src="https://img.shields.io/badge/PayPal-Sandbox-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Sandbox">
+</p>
 
-## What's in this repository
+<p>
+  <a href="#-overview">Overview</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-how-it-works">Workflow</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-getting-started">Get Started</a> •
+  <a href="#-api-reference">API</a> •
+  <a href="#-security--payment-safety">Safety</a>
+</p>
 
-### Frontend
-- Public marketing website with product overview, features, and clear sign-in / get-started paths.
-- Guest AI shopping page that can be used without creating an account.
-- React + TypeScript + Vite account dashboard, shown after sign-in or registration.
-- Overview, AI Shopping catalogue, Approvals, Activity, Spending Rules, Integrations and Settings screens.
-- Responsive layout and light/dark themes.
-- Search/filter controls, approval review modal, product comparison and rule creation.
-- Email/password account registration and sign-in, plus Google Identity Services sign-in when OAuth is configured.
-- Guest AI shopping research using OpenRouter free models plus Tavily search; sign-in is not required for research.
-- Workspace preferences and demo actions persist in browser local storage.
+</div>
 
-### API foundation
-- Express API with MongoDB/Mongoose models.
-- Account registration and email/password login using bcrypt password hashing and signed JWTs.
-- Google ID-token verification against the configured Google OAuth client ID; Google-verified email addresses are stored as passwordless accounts.
-- Authenticated spending-rule, approval, transaction and append-only audit-trail endpoints.
-- Purchase requests retain the original goal, recommendation, rejected alternatives, seller URL, budget snapshot and policy-check evidence; approval/decline decisions are recorded as append-only audit events and shown in Activity.
-- Seller INR prices are only approved when the API can issue a short-lived signed selection token from seller-page metadata; the approval API verifies the product, seller, URL and amount rather than trusting a client-edited price.
-- Approval requests are checked against enabled spending rules and the user's monthly budget.
-- OpenRouter-powered AI shopping research with Tavily web search. Both keys stay on the server; the AI receives search results and returns source links.
-- An approval creates an `approved_pending_payment` record only. **It does not create a PayPal order, authorize a card, or capture a payment.**
-- Helmet, CORS allow-listing, request-size limits and authentication rate limiting.
+---
 
-## Run locally
+## 🧭 Overview
 
-Requirements: Node.js 20+ and MongoDB (Atlas or a local replica-set deployment).
+Online shopping can involve multiple tabs, uncertain listings, hidden costs, and decisions that are difficult to track. **PayPilot AI** brings the research-to-purchase journey into one guided experience.
 
-1. Install dependencies:
+A user describes a purchase goal and budget. PayPilot assists with product research, discovers seller listings, compares available offers, applies spending rules, and presents a purchase for explicit approval. If the user proceeds, the application can demonstrate the payment flow using **PayPal Sandbox**.
 
-   ```bash
-   npm install
-   ```
+> [!IMPORTANT]
+> **Human approval is the final gate.** PayPilot can research and recommend, but it does not autonomously authorize or capture a payment. Approving a purchase request and completing a payment are separate steps.
 
-2. Create your environment file:
+<div align="center">
 
-   ```bash
-   cp .env.example .env
-   ```
+| 🤖 AI-assisted research | 🛡️ Budget guardrails | 👤 Human approval | 💳 Sandbox verification |
+|:---:|:---:|:---:|:---:|
+| Discover and compare | Check spending rules | User decides | Test payment flow |
 
-3. Set `MONGODB_URI` and a long random `JWT_SECRET` in `.env`.
+</div>
 
-4. Start the API:
+## ✨ Features
 
-   ```bash
-   npm run server:dev
-   ```
+<table>
+<tr>
+<td width="50%" valign="top">
 
-5. In another terminal, start the frontend:
+### 🔎 Intelligent product research
+- Natural-language shopping goals
+- OpenRouter-powered research and analysis
+- Tavily web search for seller discovery
+- Product-to-listing relevance checks
+- Source and seller links for review
 
-   ```bash
-   npm run dev
-   ```
+</td>
+<td width="50%" valign="top">
 
-The frontend runs on Vite's local URL (normally `http://localhost:5173`) and the API listens on `http://localhost:4000`. `VITE_API_URL` controls the frontend's API target.
+### ⚖️ Offer comparison
+- Compare available seller offers
+- Display INR prices when extractable from seller pages
+- Check offers against the requested budget
+- Avoid inventing missing seller prices
+- Review listing details before proceeding
 
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-## Google sign-in setup
+### 🛡️ Spending controls
+- Monthly budget tracking
+- Configurable spending rules
+- Backend-side purchase checks
+- Approval queue for purchase requests
+- Decision and activity history
 
-Google sign-in is implemented with Google Identity Services and verified on the API. To enable it:
+</td>
+<td width="50%" valign="top">
 
-1. In Google Cloud Console, create/select a project and configure the OAuth consent screen.
-2. Create an OAuth 2.0 Client ID with application type **Web application**.
-3. Add your local and production frontend origins under **Authorized JavaScript origins** (for example, `http://localhost:5173` and your deployed website origin).
-4. Set the same client ID in both places:
-   - Frontend environment: `VITE_GOOGLE_CLIENT_ID`
-   - Backend environment: `GOOGLE_CLIENT_ID`
-5. Restart/redeploy the frontend and API.
+### 👤 Human-in-the-loop approvals
+- Review product, seller, and amount
+- Explicit approve or decline action
+- Approval creates a pending-payment record
+- Payment is a separate user-authorized step
+- Purchase decisions recorded in an audit trail
 
-The Google button is shown only when `VITE_GOOGLE_CLIENT_ID` is configured. The API verifies the Google ID token and checks the verified email claim and audience before creating a session. Do not put client secrets in frontend variables; this flow uses a public web client ID only.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-## API routes
+### 💳 PayPal Sandbox integration
+- PayPal Checkout Orders v2
+- Server-side order creation
+- Capture status and amount verification
+- INR-to-USD reference estimate
+- Receipt generation after completed capture
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| GET | `/api/health` | API health and integration safety status |
-| POST | `/api/auth/register` | Create an account |
-| POST | `/api/auth/login` | Email/password sign in |
-| POST | `/api/auth/google` | Verify Google identity token and sign in |
-| GET / PATCH | `/api/auth/me` | Get or update the signed-in profile and monthly budget |
-| GET / POST | `/api/rules` | List or create spending rules |
-| PATCH / DELETE | `/api/rules/:id` | Update or remove an owned rule |
-| GET / POST | `/api/approvals` | List requests or submit a purchase request |
-| PATCH | `/api/approvals/:id` | Approve or decline a pending request |
-| GET | `/api/transactions` | List the signed-in user's activity |
-| GET | `/api/audit` | Read the signed-in user's append-only purchase and conversion decision trail |
-| POST | `/api/fx/quotes` | Create a server-verified INR to USD ECB reference-rate estimate for an approved purchase |
-| POST | `/api/fx/quotes/:id/accept` | Record explicit acceptance of a still-valid conversion estimate |
-| POST | `/api/paypal/orders` | Create an idempotent PayPal Sandbox order from an accepted INR-to-USD estimate |
-| POST | `/api/paypal/capture` | Capture only after buyer approval and verify the returned USD amount server-side |
-| GET | `/api/paypal/receipt/:transactionId` | Retrieve a receipt only for a verified completed capture |
-| POST | `/api/assistant/plan` | Run guest-accessible AI shopping research (OpenRouter + Tavily keys required) |
+</td>
+<td width="50%" valign="top">
 
-Protected account routes require `Authorization: Bearer <token>`. The AI shopping research route is public and rate-limited, so guests can try it without an account.
+### 📊 Account dashboard
+- Spending and budget overview
+- Saved products
+- Pending approvals
+- Recent transactions
+- Activity and audit history
+- Responsive interface and light/dark themes
 
-## Purchase workflow and PayPal Sandbox status
+</td>
+</tr>
+</table>
 
-The signed-in Overview now presents the intended agentic-commerce flow: describe a goal, compare sourced products, enforce backend spending rules, obtain explicit human approval, then proceed to payment verification. The product research, INR budget guardrails, human approval, conversion-estimate review and PayPal Sandbox payment flow are implemented across the frontend and API. The INR-to-USD conversion estimate is fetched server-side from ECB reference rates via Frankfurter, stored with its source date and five-minute confirmation window, and presented after purchase approval. Users must explicitly accept the estimate; both quote creation and acceptance are recorded in the audit trail. The estimate is not a locked PayPal rate. PayPal Sandbox order creation, capture verification, receipt generation and payment outcome audit events are implemented in the API and wired to the browser SDK. They require server-only Sandbox credentials and a configured frontend PayPal Client ID before checkout can be used. Do not represent an approved request as a completed payment.
+## 🔄 How it works
 
-PayPal Checkout Orders v2 must be called from the backend; the browser only renders the PayPal SDK button and receives the payer approval callback. PayPal's current supported payment-currency list does not include INR. Because PayPilot's product budgets and seller prices are in INR, checkout must not silently submit an INR amount or relabel it as USD. A future sandbox flow must obtain a disclosed conversion quote, show the exact USD checkout amount and rate to the user, enforce the original INR budget on the server, and store both amounts and the quote with the receipt. Sandbox checkout also simulates a payment to the configured PayPal sandbox merchant account; it does not place an order with an external retailer.
+The application follows a controlled sequence. Each stage has a clear responsibility, and the user remains in charge of the purchase.
 
-## Important integration status
+```mermaid
+flowchart TD
+    A(["📝 Describe purchase goal & budget"]) --> B["🔎 AI-assisted product research"]
+    B --> C["🛍️ Discover seller listings"]
+    C --> D["⚖️ Compare available offers"]
+    D --> E{"Within budget & rules?"}
+    E -- No --> F["⛔ Block or revise request"]
+    F --> A
+    E -- Yes --> G["📋 Create purchase request"]
+    G --> H{"👤 User decision"}
+    H -- Decline --> I["🧾 Record declined decision"]
+    H -- Approve --> J["✅ Approved — payment still pending"]
+    J --> K["💱 Show INR/USD reference estimate"]
+    K --> L{"User accepts estimate?"}
+    L -- No --> M["↩️ Stop before checkout"]
+    L -- Yes --> N["💳 PayPal Sandbox checkout"]
+    N --> O{"Capture verified?"}
+    O -- No --> P["⚠️ Record unsuccessful/pending outcome"]
+    O -- Yes --> Q["🧾 Generate receipt & record transaction"]
+    Q --> R(["📊 Dashboard and activity updated"])
+```
 
-PayPilot's core research-to-checkout workflow is implemented and connected to the authenticated API. Product research uses Tavily seller-page discovery plus OpenRouter analysis; seller candidates are restricted to individual product URLs on supported retailer domains and checked against the requested product/model. AI product candidates are shown only when they map back to a verified seller listing. Product images are optional, and seller prices are displayed only when the seller page exposes a parseable price and currency. The comparison view ranks verified INR offers and checks them against the user's budget; it does not estimate missing prices or guarantee stock, shipping, warranty or final checkout totals.
+### Workflow principles
 
-The following environment configuration is still required to use all integrations:
-- Server: `MONGODB_URI`, a long random `JWT_SECRET`, `OPENROUTER_API_KEY`, `TAVILY_API_KEY`, `PAYPAL_CLIENT_ID`, and `PAYPAL_CLIENT_SECRET`.
-- Frontend: `VITE_PAYPAL_CLIENT_ID`; optional Google sign-in uses `VITE_GOOGLE_CLIENT_ID` and the matching server-side `GOOGLE_CLIENT_ID`.
-- Keep all secrets in the server environment or ignored local `.env` file. Never put the PayPal secret, AI provider keys, database URI or JWT secret in frontend variables or Git.
+1. **Research is not authorization.** AI output is presented as information for the user to evaluate.
+2. **Approval is not payment.** An approved request remains pending until the separate checkout process is completed.
+3. **The backend validates important decisions.** Spending rules, budget checks, quote acceptance, and payment capture are not trusted solely to browser state.
+4. **Payment status is verified.** The API checks PayPal's capture result and expected amount before treating a payment as completed.
 
-PayPal is hard-pinned to Sandbox. The backend creates orders, verifies captures and issues receipts only after a completed capture with the expected USD amount. INR purchases require a separately disclosed ECB reference-rate estimate and explicit acceptance before checkout; the reference rate is not a locked PayPal or bank rate. A Sandbox capture pays the configured PayPilot merchant Sandbox account and does not place an order with Amazon, Flipkart or another external retailer.
+## 🏗️ Architecture
 
-The CI workflow runs the frontend TypeScript build, backend JavaScript syntax checks and API smoke tests. A successful CI run verifies compilation and the smoke-test suite; it does not replace end-to-end testing with configured MongoDB, AI-search and PayPal Sandbox credentials. Live seller pages can block automated extraction or change their data, so users must confirm final price, stock, warranty, delivery and seller details on the merchant website.
+PayPilot uses a React frontend, an Express REST API, MongoDB persistence, and external services for AI research, web search, currency reference data, and sandbox payment processing.
 
-## Build
+### High-level system architecture
+
+```mermaid
+flowchart TB
+    subgraph CLIENT["🌐 Client Layer"]
+      UI["React + TypeScript + Vite"]
+      DASH["Shopping UI · Dashboard · Approvals"]
+      SDK["PayPal Browser SDK"]
+      UI --> DASH
+      UI --> SDK
+    end
+
+    subgraph SERVER["⚙️ Application Layer"]
+      API["Express REST API"]
+      AUTH["JWT Authentication"]
+      RULES["Spending Rules & Approval Engine"]
+      RESEARCH["AI Research Service"]
+      FX["FX Quote Service"]
+      PAYMENT["PayPal Order & Capture Service"]
+      AUDIT["Transactions & Audit Trail"]
+      API --> AUTH
+      API --> RULES
+      API --> RESEARCH
+      API --> FX
+      API --> PAYMENT
+      API --> AUDIT
+    end
+
+    DB[("🍃 MongoDB")]
+    OPENROUTER["OpenRouter"]
+    TAVILY["Tavily Search"]
+    FRANK["Frankfurter / ECB Reference Rates"]
+    PAYPAL["PayPal Sandbox API"]
+
+    DASH <-->|HTTPS / JSON| API
+    SDK <-->|Buyer approval callback| PAYPAL
+    AUTH <--> DB
+    RULES <--> DB
+    AUDIT <--> DB
+    RESEARCH --> OPENROUTER
+    RESEARCH --> TAVILY
+    FX --> FRANK
+    PAYMENT <-->|Server-side API| PAYPAL
+    PAYMENT <--> DB
+```
+
+### Component responsibilities
+
+| Component | Responsibility |
+|---|---|
+| **React + TypeScript** | User interface, product exploration, dashboard, approval and activity screens |
+| **Express API** | Application endpoints, validation, orchestration and business logic |
+| **JWT middleware** | Protect account-specific API routes |
+| **MongoDB + Mongoose** | Persist users, rules, approvals, saved products, quotes, transactions and audit events |
+| **OpenRouter** | AI-assisted product research and analysis |
+| **Tavily** | Web search and seller-page discovery |
+| **Frankfurter / ECB reference rates** | Provide the reference-rate data used for INR-to-USD estimates |
+| **PayPal Sandbox** | Demonstrate order creation, buyer approval, capture verification and test receipts |
+
+### Backend request and payment sequence
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Web as React Client
+    participant API as Express API
+    participant DB as MongoDB
+    participant FX as FX Provider
+    participant PP as PayPal Sandbox
+
+    User->>Web: Submit shopping goal
+    Web->>API: Request AI shopping plan
+    API->>API: Search and analyze listings
+    API-->>Web: Product candidates and sources
+    User->>Web: Select offer and submit request
+    Web->>API: Create purchase request
+    API->>DB: Validate rules and save request
+    API-->>Web: Request details
+    User->>Web: Explicitly approve
+    Web->>API: Approve request
+    API->>DB: Save approval and audit event
+    API-->>Web: Approved, payment pending
+    Web->>API: Request conversion estimate
+    API->>FX: Retrieve reference rate
+    FX-->>API: Rate and source date
+    API->>DB: Save quote
+    API-->>Web: Display estimate
+    User->>Web: Accept estimate and continue
+    Web->>API: Create PayPal order
+    API->>PP: Create Sandbox order
+    PP-->>API: Order ID
+    API-->>Web: Checkout order
+    User->>PP: Approve Sandbox checkout
+    PP-->>Web: Buyer approval callback
+    Web->>API: Capture approved order
+    API->>PP: Capture order
+    PP-->>API: Capture result
+    API->>API: Verify status and amount
+    API->>DB: Save transaction, receipt and audit event
+    API-->>Web: Verified payment result
+    Web-->>User: Show receipt and updated activity
+```
+
+## 🧰 Technology stack
+
+<div align="center">
+
+| Frontend | Backend & Data | Integrations |
+|:---:|:---:|:---:|
+| React 18 | Node.js 20+ | OpenRouter |
+| TypeScript | Express 4 | Tavily |
+| Vite | MongoDB | PayPal Sandbox |
+| Framer Motion | Mongoose | Frankfurter / ECB rates |
+| Lucide React | JWT + bcrypt | Google Identity Services (optional) |
+| Recharts | Helmet, CORS, rate limiting | |
+
+</div>
+
+## 🚀 Getting started
+
+### Prerequisites
+
+- **Node.js 20+** and npm
+- **MongoDB** Atlas connection or local MongoDB deployment
+- API credentials for the integrations you want to run
+
+### 1. Clone the repository
 
 ```bash
-npm run build
-npm run check:server
-``
+git clone https://github.com/madupojumounika/paypilot.git
+cd paypilot
+```
 
-GitHub Actions runs the frontend build on pushes and pull requests to `main`.
+### 2. Install packages
+
+```bash
+npm install
+```
+
+### 3. Configure environment variables
+
+Create your local environment file:
+
+```bash
+cp .env.example .env
+```
+
+For Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Update the values in `.env`:
+
+| Variable | Used for | Required when |
+|---|---|---|
+| `PORT` | API port (default `4000`) | API server |
+| `CLIENT_ORIGIN` | Allowed frontend origin | API server |
+| `VITE_API_URL` | Frontend API base URL | Frontend |
+| `MONGODB_URI` | MongoDB connection | Persistent data |
+| `JWT_SECRET` | Signing authentication tokens | Account authentication |
+| `OPENROUTER_API_KEY` | AI research | AI shopping research |
+| `OPENROUTER_MODEL` | Model selection | AI shopping research |
+| `TAVILY_API_KEY` | Web search | AI shopping research |
+| `PAYPAL_CLIENT_ID` | PayPal app client ID | Sandbox checkout |
+| `PAYPAL_CLIENT_SECRET` | PayPal app secret | Sandbox checkout |
+| `PAYPAL_ENVIRONMENT` | Set to `sandbox` | PayPal integration |
+| `VITE_PAYPAL_CLIENT_ID` | Browser PayPal SDK client ID | Sandbox checkout |
+| `VITE_GOOGLE_CLIENT_ID` | Google web client ID | Optional Google sign-in |
+| `GOOGLE_CLIENT_ID` | API-side Google audience validation | Optional Google sign-in |
+
+> 🔐 Keep secrets in the server-side `.env` file or deployment secret manager. Never commit real credentials or expose private keys through `VITE_*` variables.
+
+### 4. Start the backend
+
+Open a terminal:
+
+```bash
+npm run server:dev
+```
+
+The API runs at `http://localhost:4000` by default.
+
+### 5. Start the frontend
+
+Open a second terminal:
+
+```bash
+npm run dev
+```
+
+Open the local URL printed by Vite, usually:
+
+```text
+http://localhost:5173
+```
+
+### 6. Optional: Configure Google sign-in
+
+1. Create a Web OAuth Client ID in Google Cloud Console.
+2. Add your local and deployed frontend origins to **Authorized JavaScript origins**.
+3. Set the same client ID as `VITE_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_ID`.
+4. Restart the frontend and API.
+
+Google sign-in is displayed only when the frontend client ID is configured. The backend verifies the ID token and its audience.
+
+## 📡 API reference
+
+Protected account endpoints require:
+
+```http
+Authorization: Bearer <token>
+```
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | API health and integration status |
+| `POST` | `/api/auth/register` | Register an account |
+| `POST` | `/api/auth/login` | Email/password login |
+| `POST` | `/api/auth/google` | Verify Google identity token |
+| `GET`, `PATCH` | `/api/auth/me` | Read/update signed-in profile |
+| `GET`, `POST` | `/api/rules` | List/create spending rules |
+| `PATCH`, `DELETE` | `/api/rules/:id` | Update/delete a spending rule |
+| `GET`, `POST` | `/api/approvals` | List/create purchase requests |
+| `PATCH` | `/api/approvals/:id` | Approve or decline a request |
+| `GET` | `/api/transactions` | List transaction activity |
+| `GET` | `/api/audit` | Read purchase and payment audit events |
+| `POST` | `/api/fx/quotes` | Create INR-to-USD reference estimate |
+| `POST` | `/api/fx/quotes/:id/accept` | Record explicit quote acceptance |
+| `POST` | `/api/paypal/orders` | Create PayPal Sandbox order |
+| `POST` | `/api/paypal/capture` | Capture and verify Sandbox payment |
+| `GET` | `/api/paypal/receipt/:transactionId` | Retrieve verified payment receipt |
+| `POST` | `/api/assistant/plan` | AI-assisted shopping research |
+| `GET`, `POST` | `/api/saved-products` | List/save products |
+| `DELETE` | `/api/saved-products/:id` | Remove a saved product |
+
+The AI shopping research endpoint is guest-accessible and rate-limited. Account, spending, approval, saved-product, and transaction data are protected by authentication.
+
+## 🧪 Scripts and checks
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Vite development server |
+| `npm run build` | Run TypeScript checks and build frontend |
+| `npm run preview` | Preview production frontend build |
+| `npm run server:dev` | Start API with Node watch mode |
+| `npm run server:start` | Start API |
+| `npm run check:server` | Run backend syntax checks |
+| `npm run test:server` | Run backend tests |
+
+## 🔒 Security & payment safety
+
+- **Sandbox-only payment integration:** The project is configured for PayPal Sandbox testing, not live payment processing.
+- **No autonomous payment capture:** The AI cannot approve or capture payments on behalf of the user.
+- **Server-side verification:** PayPal order creation and capture are performed by the API. The backend verifies the completed capture and expected USD amount before issuing a receipt.
+- **Separate approval and payment:** An approved purchase request is stored as `approved_pending_payment`; this is not a completed transaction.
+- **Spending validation:** Purchase requests are checked against enabled spending rules and monthly budget constraints.
+- **Quote transparency:** The INR-to-USD figure is an ECB reference-rate estimate, not a guaranteed PayPal, card, or bank exchange rate.
+- **Secret handling:** Database credentials, JWT secrets, AI keys, and PayPal secrets must remain server-side.
+- **API protections:** Helmet, CORS allow-listing, request-size limits, and authentication rate limiting are included.
+
+### Important demo limitations
+
+> [!WARNING]
+> PayPal Sandbox simulates a payment to the configured **PayPilot Sandbox merchant**. It does **not** place an order with Flipkart, Amazon, or another retailer, and it does not charge real money.
+
+Seller-page extraction can be limited or change over time. A displayed listing does not guarantee stock, shipping, warranty, delivery time, or the final merchant checkout price. Users should confirm all final details on the retailer's website.
+
+## 🗂️ Project structure
+
+```text
+paypilot/
+├── src/
+│   ├── App.tsx                 # Main React application and screens
+│   ├── main.tsx                # Frontend entry point
+│   ├── index.css               # Global styles and themes
+│   ├── types.ts                # Shared TypeScript types
+│   ├── hooks/
+│   │   └── usePersistentState.ts
+│   └── lib/
+│       └── api.ts              # Frontend API client
+├── server/
+│   └── src/
+│       ├── app.js              # Express app and route registration
+│       ├── index.js            # API entry point
+│       ├── config/
+│       │   └── db.js           # MongoDB connection
+│       ├── middleware/
+│       │   └── auth.js         # JWT authentication
+│       ├── models/             # Mongoose data models
+│       └── routes/             # Auth, rules, approvals, AI, FX, PayPal, etc.
+├── .env.example                # Environment variable template
+├── package.json
+└── README.md
+```
+
+## 🛣️ Project status
+
+PayPilot AI is a **working prototype** demonstrating an AI-assisted shopping research and approval workflow with PayPal Sandbox payment verification.
+
+| Area | Implementation |
+|---|---|
+| Product research and seller discovery | Implemented; depends on configured AI/search services and accessible seller pages |
+| Budget rules and approval flow | Implemented in frontend and API |
+| Account authentication and persistence | Implemented; requires MongoDB configuration |
+| Currency reference estimate | Implemented; not a locked checkout conversion |
+| PayPal order and capture flow | Implemented for Sandbox; requires Sandbox credentials |
+| Receipt and transaction history | Implemented for verified completed Sandbox captures |
+
+A successful frontend build or API test suite does not replace end-to-end testing with configured MongoDB, AI-search, and PayPal Sandbox credentials.
+
+## 🔮 Future improvements
+
+- Broader retailer coverage and resilient seller-page parsing
+- More detailed landed-cost comparison, including shipping and taxes where available
+- Additional approval policies and configurable spending limits
+- Automated integration and end-to-end test coverage
+- Production-grade monitoring and deployment hardening
+
+## 🤝 Contributing
+
+Suggestions, bug reports, and improvements are welcome. For substantial changes, open an issue first to discuss the proposed approach, then submit a pull request with a clear description and test notes.
+
+## 📄 License
+
+No open-source license has been added to this repository yet. Unless a license is added, the project remains under its owner's default copyright.
+
+---
+
+<div align="center">
+
+### Built around one simple promise
+
+## AI can help you decide. You decide whether to pay.
+
+**PayPilot AI · Research clearly. Spend consciously. Stay in control.**
+
+</div>
