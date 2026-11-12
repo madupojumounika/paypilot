@@ -145,8 +145,8 @@ function isAccessoryTitle(title = '') {
 }
 
 function isLowQualityProductTitle(title = '') {
-  return /\\bproduct\\s+title\\s+variations?\\b|\\btitle\\s+variations?\\s*[_-]?[a-z0-9]+/i.test(String(title))
-    || /(?:^|\\s)_[a-z0-9]{2,5}\\b/i.test(String(title));
+  return /\bproduct\s+title\s+variations?\b|\btitle\s+variations?\s*[_-]?[a-z0-9]+/i.test(String(title))
+    || /(?:^|\s)_[a-z0-9]{2,5}\b/i.test(String(title));
 }
 
 function matchesRequestedProduct(title = '', query = '') {
