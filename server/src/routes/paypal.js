@@ -52,13 +52,48 @@ router.post('/orders', async (req, res, next) => {
     if (!transaction) return res.status(409).json({ error: 'No unpaid approved purchase is available for checkout.' });
     if (Math.abs(transaction.amount - quote.sourceAmountINR) > 0.01) return res.status(409).json({ error: 'The conversion estimate does not match the approved INR amount.' });
     if (transaction.paymentStatus === 'COMPLETED' || transaction.paymentExecuted) return res.status(409).json({ error: 'This purchase has already been paid.' });
+    let accessToken;
     if (transaction.paypalOrderId) {
-      if (String(transaction.fxQuoteId) !== String(quote._id)) return res.status(409).json({ error: 'A PayPal order already exists for a different conversion estimate. Complete or resolve that order before requesting another checkout.' });
-      return res.json({ orderID: transaction.paypalOrderId, amountUSD: amountString(transaction.amountUSD), currency: 'USD', reused: true });
+      if (String(transaction.fxQuoteId) === String(quote._id)) {
+        return res.json({ orderID: transaction.paypalOrderId, amountUSD: amountString(transaction.amountUSD), currency: 'USD', reused: true });
+      }
+
+      // An order that is still only CREATED has not been approved by the buyer
+      // and cannot have been captured. Verify that status with PayPal before
+      // detaching it so a fresh, differently-priced quote can get a new order.
+      accessToken = await getAccessToken();
+      const oldOrderResponse = await fetch(PAYPAL_API + '/v2/checkout/orders/' + encodeURIComponent(transaction.paypalOrderId), {
+        headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
+        signal: AbortSignal.timeout(12000),
+      });
+      const oldOrder = await oldOrderResponse.json();
+      if (!oldOrderResponse.ok || !oldOrder.status) {
+        return res.status(503).json({ error: 'The previous PayPal order status could not be verified. No new checkout was created. Please try again.' });
+      }
+      if (oldOrder.status === 'COMPLETED') {
+        return res.status(409).json({ error: 'The previous PayPal order is already completed. Refresh Activity and check its receipt before starting another checkout.' });
+      }
+      if (!['CREATED', 'VOIDED'].includes(oldOrder.status)) {
+        return res.status(409).json({ error: 'The previous PayPal order is ' + oldOrder.status + '. Resolve that checkout before using a different conversion estimate.' });
+      }
+
+      const previousOrderId = transaction.paypalOrderId;
+      transaction.fxQuoteId = null;
+      transaction.amountUSD = null;
+      transaction.paypalOrderId = '';
+      transaction.paymentStatus = 'NOT_STARTED';
+      await transaction.save();
+      await AuditEvent.create({
+        userId: req.userId,
+        action: 'payment.order_superseded',
+        entityType: 'transaction',
+        entityId: transaction._id,
+        details: { previousPayPalOrderId: previousOrderId, previousPayPalStatus: oldOrder.status, replacementFxQuoteId: quote._id },
+      });
     }
 
-    const accessToken = await getAccessToken();
-    const requestId = 'ppord-' + transaction.id;
+    if (!accessToken) accessToken = await getAccessToken();
+    const requestId = 'ppord-' + transaction.id + '-' + quote.id;
     const response = await fetch(PAYPAL_API + '/v2/checkout/orders', {
       method: 'POST',
       headers: {
