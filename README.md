@@ -124,22 +124,12 @@ A user describes a purchase goal and budget. PayPilot assists with product resea
 The application follows a controlled sequence. Each stage has a clear responsibility, and the user remains in charge of the purchase.
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 18, "rankSpacing": 24, "curve": "linear"}}}%%
-flowchart TD
-    A(["Describe goal & budget"]) --> B["AI research + seller discovery"]
-    B --> C["Compare verified offers"]
-    C --> D{"Budget & rules pass?"}
-    D -- No --> E["Revise or stop"]
-    E --> A
-    D -- Yes --> F["Create purchase request"]
-    F --> G{"User approves?"}
-    G -- No --> H["Record declined request"]
-    G -- Yes --> I["Approved; payment pending"]
-    I --> J["Accept FX estimate"]
-    J --> K["PayPal Sandbox checkout"]
-    K --> L{"Capture verified?"}
-    L -- No --> M["Record payment outcome"]
-    L -- Yes --> N["Receipt + transaction history"]
+%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 18, "curve": "linear"}}}%%
+flowchart LR
+    A["Set goal and budget"] --> B["Research offers"]
+    B --> C["Review and approve"]
+    C --> D["PayPal Sandbox"]
+    D --> E["Verified receipt"]
 ```
 
 ### Workflow principles
@@ -190,34 +180,14 @@ flowchart TB
 ### Backend request and payment sequence
 
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "12px"}, "sequence": {"actorMargin": 35, "messageMargin": 22, "noteMargin": 8}}}%%
-sequenceDiagram
-    actor User
-    participant UI as React
-    participant API as Express API
-    participant DB as MongoDB
-    participant PP as PayPal Sandbox
-
-    User->>UI: Submit goal and choose offer
-    UI->>API: Research + create purchase request
-    API->>DB: Check rules; save request
-    API-->>UI: Request details
-    User->>UI: Approve request
-    UI->>API: Record approval
-    API->>DB: Save approval (payment pending)
-    UI->>API: Request FX estimate
-    API-->>UI: Reference estimate
-    User->>UI: Accept estimate and checkout
-    UI->>API: Create PayPal order
-    API->>PP: Create Sandbox order
-    PP-->>UI: Buyer approves order
-    UI->>API: Request capture
-    API->>PP: Capture payment
-    PP-->>API: Capture result
-    API->>API: Verify status and amount
-    API->>DB: Save receipt, transaction, audit event
-    API-->>UI: Verified payment result
-    UI-->>User: Display receipt
+%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 18, "curve": "linear"}}}%%
+flowchart LR
+    U["React UI"] -->|Purchase request| A["Express API"]
+    A -->|Save request and approval| D[("MongoDB")]
+    A -->|Create order| P["PayPal Sandbox"]
+    P -->|Capture result| A
+    A -->|Verify and save receipt| D
+    A -->|Payment result| U
 ```
 
 ## 🧰 Technology stack
