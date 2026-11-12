@@ -124,25 +124,22 @@ A user describes a purchase goal and budget. PayPilot assists with product resea
 The application follows a controlled sequence. Each stage has a clear responsibility, and the user remains in charge of the purchase.
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 18, "rankSpacing": 24, "curve": "linear"}}}%%
 flowchart TD
-    A(["📝 Describe purchase goal & budget"]) --> B["🔎 AI-assisted product research"]
-    B --> C["🛍️ Discover seller listings"]
-    C --> D["⚖️ Compare available offers"]
-    D --> E{"Within budget & rules?"}
-    E -- No --> F["⛔ Block or revise request"]
-    F --> A
-    E -- Yes --> G["📋 Create purchase request"]
-    G --> H{"👤 User decision"}
-    H -- Decline --> I["🧾 Record declined decision"]
-    H -- Approve --> J["✅ Approved — payment still pending"]
-    J --> K["💱 Show INR/USD reference estimate"]
-    K --> L{"User accepts estimate?"}
-    L -- No --> M["↩️ Stop before checkout"]
-    L -- Yes --> N["💳 PayPal Sandbox checkout"]
-    N --> O{"Capture verified?"}
-    O -- No --> P["⚠️ Record unsuccessful/pending outcome"]
-    O -- Yes --> Q["🧾 Generate receipt & record transaction"]
-    Q --> R(["📊 Dashboard and activity updated"])
+    A(["Describe goal & budget"]) --> B["AI research + seller discovery"]
+    B --> C["Compare verified offers"]
+    C --> D{"Budget & rules pass?"}
+    D -- No --> E["Revise or stop"]
+    E --> A
+    D -- Yes --> F["Create purchase request"]
+    F --> G{"User approves?"}
+    G -- No --> H["Record declined request"]
+    G -- Yes --> I["Approved; payment pending"]
+    I --> J["Accept FX estimate"]
+    J --> K["PayPal Sandbox checkout"]
+    K --> L{"Capture verified?"}
+    L -- No --> M["Record payment outcome"]
+    L -- Yes --> N["Receipt + transaction history"]
 ```
 
 ### Workflow principles
@@ -159,47 +156,22 @@ PayPilot uses a React frontend, an Express REST API, MongoDB persistence, and ex
 ### High-level system architecture
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 18, "rankSpacing": 24, "curve": "linear"}}}%%
 flowchart TB
-    subgraph CLIENT["🌐 Client Layer"]
-      UI["React + TypeScript + Vite"]
-      DASH["Shopping UI · Dashboard · Approvals"]
-      SDK["PayPal Browser SDK"]
-      UI --> DASH
-      UI --> SDK
-    end
-
-    subgraph SERVER["⚙️ Application Layer"]
-      API["Express REST API"]
-      AUTH["JWT Authentication"]
-      RULES["Spending Rules & Approval Engine"]
-      RESEARCH["AI Research Service"]
-      FX["FX Quote Service"]
-      PAYMENT["PayPal Order & Capture Service"]
-      AUDIT["Transactions & Audit Trail"]
-      API --> AUTH
-      API --> RULES
-      API --> RESEARCH
-      API --> FX
-      API --> PAYMENT
-      API --> AUDIT
-    end
-
-    DB[("🍃 MongoDB")]
-    OPENROUTER["OpenRouter"]
-    TAVILY["Tavily Search"]
-    FRANK["Frankfurter / ECB Reference Rates"]
-    PAYPAL["PayPal Sandbox API"]
-
-    DASH <-->|HTTPS / JSON| API
-    SDK <-->|Buyer approval callback| PAYPAL
-    AUTH <--> DB
-    RULES <--> DB
-    AUDIT <--> DB
-    RESEARCH --> OPENROUTER
-    RESEARCH --> TAVILY
-    FX --> FRANK
-    PAYMENT <-->|Server-side API| PAYPAL
-    PAYMENT <--> DB
+    UI["React + TypeScript frontend"] <-->|HTTPS / JSON| API["Express REST API"]
+    UI <-->|Buyer approval| PP["PayPal Sandbox"]
+    API --> AUTH["JWT authentication"]
+    API --> CORE["Rules · Approvals · Audit"]
+    API --> AI["AI research service"]
+    API --> FX["FX quote service"]
+    API --> PAY["Payment service"]
+    AUTH --> DB[("MongoDB")]
+    CORE <--> DB
+    PAY <--> DB
+    AI --> OR["OpenRouter"]
+    AI --> TV["Tavily"]
+    FX --> ECB["Frankfurter / ECB rates"]
+    PAY <-->|Server API| PP
 ```
 
 ### Component responsibilities
@@ -218,45 +190,34 @@ flowchart TB
 ### Backend request and payment sequence
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "12px"}, "sequence": {"actorMargin": 35, "messageMargin": 22, "noteMargin": 8}}}%%
 sequenceDiagram
     actor User
-    participant Web as React Client
+    participant UI as React
     participant API as Express API
     participant DB as MongoDB
-    participant FX as FX Provider
     participant PP as PayPal Sandbox
 
-    User->>Web: Submit shopping goal
-    Web->>API: Request AI shopping plan
-    API->>API: Search and analyze listings
-    API-->>Web: Product candidates and sources
-    User->>Web: Select offer and submit request
-    Web->>API: Create purchase request
-    API->>DB: Validate rules and save request
-    API-->>Web: Request details
-    User->>Web: Explicitly approve
-    Web->>API: Approve request
-    API->>DB: Save approval and audit event
-    API-->>Web: Approved, payment pending
-    Web->>API: Request conversion estimate
-    API->>FX: Retrieve reference rate
-    FX-->>API: Rate and source date
-    API->>DB: Save quote
-    API-->>Web: Display estimate
-    User->>Web: Accept estimate and continue
-    Web->>API: Create PayPal order
+    User->>UI: Submit goal and choose offer
+    UI->>API: Research + create purchase request
+    API->>DB: Check rules; save request
+    API-->>UI: Request details
+    User->>UI: Approve request
+    UI->>API: Record approval
+    API->>DB: Save approval (payment pending)
+    UI->>API: Request FX estimate
+    API-->>UI: Reference estimate
+    User->>UI: Accept estimate and checkout
+    UI->>API: Create PayPal order
     API->>PP: Create Sandbox order
-    PP-->>API: Order ID
-    API-->>Web: Checkout order
-    User->>PP: Approve Sandbox checkout
-    PP-->>Web: Buyer approval callback
-    Web->>API: Capture approved order
-    API->>PP: Capture order
+    PP-->>UI: Buyer approves order
+    UI->>API: Request capture
+    API->>PP: Capture payment
     PP-->>API: Capture result
     API->>API: Verify status and amount
-    API->>DB: Save transaction, receipt and audit event
-    API-->>Web: Verified payment result
-    Web-->>User: Show receipt and updated activity
+    API->>DB: Save receipt, transaction, audit event
+    API-->>UI: Verified payment result
+    UI-->>User: Display receipt
 ```
 
 ## 🧰 Technology stack
