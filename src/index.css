@@ -1370,3 +1370,91 @@
     min-height:calc(100svh - 112px);
   }
 }
+
+
+/* Refined, full-width PayPilot site footer */
+.paypal-style .pp-footer{
+  background:#f5f8fc;
+  border-top:1px solid #dce5f0;
+  color:#102b4e;
+}
+.paypal-style .pp-footer-inner{
+  max-width:1280px;
+  margin:0 auto;
+  padding:52px 46px 22px;
+  display:block;
+}
+.paypal-style .pp-footer-top{
+  display:grid;
+  grid-template-columns:minmax(230px,.85fr) 1.5fr;
+  gap:90px;
+  padding-bottom:42px;
+}
+.paypal-style .pp-footer-brand .pp-logo{
+  color:#082b57;
+  font-size:25px;
+  font-weight:800;
+}
+.paypal-style .pp-footer-brand p{
+  max-width:330px;
+  margin:18px 0 20px;
+  color:#526780;
+  font-size:13px;
+  line-height:1.8;
+}
+.paypal-style .pp-footer-promise{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:#174d85;
+  font-size:12px;
+  font-weight:650;
+}
+.paypal-style .pp-footer-promise svg{color:#1768b5}
+.paypal-style .pp-footer-links{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:34px;
+}
+.paypal-style .pp-footer-links>div{gap:15px}
+.paypal-style .pp-footer-links strong{
+  color:#15395f;
+  font-size:11px;
+  letter-spacing:1.1px;
+  margin-bottom:5px;
+}
+.paypal-style .pp-footer-links a,
+.paypal-style .pp-footer-links button{
+  color:#526780;
+  font-size:13px;
+  line-height:1.5;
+  text-align:left;
+}
+.paypal-style .pp-footer-links a:hover,
+.paypal-style .pp-footer-links button:hover{
+  color:#075db5;
+  text-decoration:underline;
+}
+.paypal-style .pp-footer-bottom{
+  border-top:1px solid #dce5f0;
+  margin:0;
+  padding:22px 0 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  color:#60748c;
+  font-size:11px;
+}
+.paypal-style .pp-footer-bottom-note{
+  max-width:620px;
+  text-align:right;
+  line-height:1.6;
+}
+@media(max-width:760px){
+  .paypal-style .pp-footer-inner{padding:38px 22px 20px}
+  .paypal-style .pp-footer-top{grid-template-columns:1fr;gap:34px;padding-bottom:30px}
+  .paypal-style .pp-footer-links{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 18px}
+  .paypal-style .pp-footer-bottom{align-items:flex-start;flex-direction:column;gap:9px}
+  .paypal-style .pp-footer-bottom-note{text-align:left}
+}
