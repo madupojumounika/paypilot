@@ -362,7 +362,7 @@ function buildSearchFallback(query, searchResults, products, budget) {
     : 'The free AI model did not return a usable comparison, and the search did not produce a verifiable individual product page for “' + query + '”. PayPilot has hidden category pages, buying guides and generic search pages instead of presenting them as products. Try a more specific model or retailer search.';
   const criteria = /\b(headphones?|headsets?|earbuds?|earphones?)\b/i.test(query)
     ? [
-        { label: 'Match the exact headphone model and confirm active noise cancellation', importance: 'must-have' },
+        { label: 'Match the requested headphone type and check whether active noise cancellation is included if you need it', importance: 'nice-to-have' },
         { label: 'Compare battery life, comfort, microphone and supported audio features', importance: 'must-have' },
         { label: 'Confirm final price, warranty, returns and seller availability', importance: 'must-have' },
       ]

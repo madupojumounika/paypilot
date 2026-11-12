@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 const approvalSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   merchant: { type: String, required: true, trim: true, maxlength: 120 },
-  item: { type: String, required: true, trim: true, maxlength: 180 },
+  // Shopping research caps verified seller titles at 220 characters; keep the
+  // approval schema aligned so the exact title still matches its signed selection token.
+  item: { type: String, required: true, trim: true, maxlength: 220 },
   category: { type: String, default: 'shopping', lowercase: true, trim: true },
   amount: { type: Number, required: true, min: 0.01 },
   currency: { type: String, enum: ['INR'], default: 'INR' },
