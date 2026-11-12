@@ -191,31 +191,72 @@ function merchantName(url) {
   } catch { return 'Seller website'; }
 }
 
+function extractExplicitINRPrice(rawContent = '') {
+  const text = String(rawContent).replace(/\r/g, '');
+  const matches = [...text.matchAll(/(?:₹\s*|(?:\bINR\b|\bRs\.?)\s*)([\d,]+(?:\.\d{1,2})?)/gi)];
+  for (const match of matches) {
+    const amount = Number(String(match[1]).replace(/,/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000) continue;
+    const context = text.slice(Math.max(0, match.index - 90), Math.min(text.length, match.index + match[0].length + 90)).toLowerCase();
+    if (/\b(?:emi|per month|\/month|monthly|cashback|coupon|discount|save|savings|mrp|list price|bank offer|exchange bonus|you save)\b/.test(context)) continue;
+    return { amount, price: '₹' + amount.toLocaleString('en-IN'), source: 'seller_page_extract' };
+  }
+  return null;
+}
+
+function normalizeSellerUrl(url = '') {
+  try { const parsed = new URL(url); parsed.hash = ''; parsed.search = ''; return parsed.origin + parsed.pathname.replace(/\/+$/, ''); }
+  catch { return String(url); }
+}
+
+function productVariantIdentity(title = '') {
+  return normalizeProductText(String(title).replace(/\s*[-–|,]?\s*(?:black|white|blue|pink|green|red|silver|grey|gray|beige|purple|gold|rose gold)\s*(?::\s*amazon\.in.*)?$/i, '').trim());
+}
+
+function groupColourVariants(products = []) {
+  const groups = new Map();
+  for (const product of products) {
+    const key = productVariantIdentity(product.title);
+    const variantMatch = String(product.title).match(/(?:^|[-–|,]\s*)(black|white|blue|pink|green|red|silver|grey|gray|beige|purple|gold|rose gold)\s*(?::\s*amazon\.in.*)?$/i);
+    const variant = { title: product.title, label: variantMatch ? variantMatch[1][0].toUpperCase() + variantMatch[1].slice(1).toLowerCase() : 'Other option', url: product.url, image: product.image || null, price: product.price || null, merchant: product.merchant, selectionToken: product.selectionToken || null };
+    const existing = groups.get(key);
+    if (existing) existing.variants.push(variant);
+    else groups.set(key, { ...product, variants: [variant] });
+  }
+  return [...groups.values()].map(group => {
+    if (group.variants.length < 2) return { ...group, variants: undefined };
+    const priced = group.variants.filter(variant => variant.price);
+    const preferred = priced[0] || group.variants[0];
+    const { selectionToken, ...groupWithoutToken } = group;
+    return { ...groupWithoutToken, title: group.title.replace(/\s*[-–|,]?\s*(?:black|white|blue|pink|green|red|silver|grey|gray|beige|purple|gold|rose gold)\s*(?::\s*amazon\.in.*)?$/i, '').trim(), url: preferred.url, image: preferred.image || group.image, price: preferred.price || null };
+  });
+}
+
 async function fillMissingProductImages(products) {
-  const missing = products.filter(product => !product.image);
+  const needsEnrichment = products.filter(product => !product.image || !product.price);
   const apiKey = process.env.TAVILY_API_KEY;
-  if (!missing.length || !apiKey) return products;
+  if (!needsEnrichment.length || !apiKey) return products;
   try {
     const response = await fetch('https://api.tavily.com/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: apiKey,
-        urls: missing.map(product => product.url),
-        extract_depth: 'basic',
+        urls: needsEnrichment.map(product => product.url),
+        extract_depth: 'advanced',
         include_images: true,
       }),
       signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) return products;
     const payload = await response.json();
-    const imagesByUrl = new Map((payload.results || []).map(result => [
-      result.url,
-      Array.isArray(result.images) ? result.images : [],
-    ]));
+    const extractedByUrl = new Map((payload.results || []).map(result => [normalizeSellerUrl(result.url), result]));
     return products.map(product => {
-      if (product.image) return product;
-      const images = imagesByUrl.get(product.url) || [];
+      const extracted = extractedByUrl.get(normalizeSellerUrl(product.url));
+      const rawContent = typeof extracted?.raw_content === 'string' ? extracted.raw_content : '';
+      const extractedPrice = !product.price ? extractExplicitINRPrice(rawContent) : null;
+      const images = Array.isArray(extracted?.images) ? extracted.images : [];
+      if (product.image && !extractedPrice) return product;
       const candidates = images.map(image => ({
         url: typeof image === 'string' ? image : image?.url,
         description: typeof image === 'object' ? image?.description || '' : '',
@@ -231,7 +272,7 @@ async function fillMissingProductImages(products) {
         const score = candidate => titleWords.reduce((total, word) => total + (candidate.description.toLowerCase().includes(word) ? 1 : 0), 0);
         return score(b) - score(a);
       });
-      return candidates[0] ? { ...product, image: candidates[0].url } : product;
+      return { ...product, ...(product.image || !candidates[0] ? {} : { image: candidates[0].url }), ...(extractedPrice ? { price: extractedPrice.price, priceSource: extractedPrice.source } : {}) };
     });
   } catch {
     return products;
@@ -479,13 +520,14 @@ router.post('/plan', async (req, res) => {
       try { result = extractJson(raw); }
       catch { usedFallback = true; }
     }
-    const productsWithImages = (await productWork).map(product => {
+    const sellerProducts = (await productWork).map(product => {
       if (!product.price?.startsWith('₹') || !process.env.JWT_SECRET) return product;
       const amountINR = Number(product.price.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(amountINR) || amountINR <= 0) return product;
       const selectionToken = jwt.sign({ type: 'purchase_selection', title: product.title, url: product.url, merchant: product.merchant, amountINR, currency: 'INR' }, process.env.JWT_SECRET, { expiresIn: '15m' });
       return { ...product, selectionToken };
     });
+    const productsWithImages = groupColourVariants(sellerProducts);
     if (usedFallback || !result || !Array.isArray(result.options)) {
       result = buildSearchFallback(query, searchResults, productsWithImages, budget);
     }
@@ -514,7 +556,7 @@ router.post('/plan', async (req, res) => {
     if (!Array.isArray(result.rejectedAlternatives)) result.rejectedAlternatives = [];
     result.rejectedAlternatives = result.rejectedAlternatives.slice(0, 5).filter(option => option && typeof option.product === 'string' && typeof option.reason === 'string');
 
-        const productUrls = new Set(productsWithImages.map(product => product.url));
+        const productUrls = new Set(productsWithImages.flatMap(product => [product.url, ...(product.variants || []).map(variant => variant.url)]));
     const safeSources = searchResults
       .filter(source => {
         try { return new URL(source.url).protocol === 'https:' && !looksLikeCategoryResult(source); } catch { return false; }
