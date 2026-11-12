@@ -1305,3 +1305,39 @@
 .app-shell .ai-variant-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text)}
 .app-shell .ai-variant-row .text-action{flex:none}
 .app-shell .ai-variant-row .ai-product-view-link{flex:none}
+
+
+/* Purchase actions must read and behave like real controls, not inline text links. */
+.app-shell .request-approval-action{
+  min-height:36px;
+  padding:8px 12px;
+  margin:8px 0 10px;
+  border:1px solid #b8cbea;
+  border-radius:8px;
+  background:#eef5ff;
+  color:#174b87;
+  font-size:11px;
+  font-weight:750;
+  line-height:1.25;
+  cursor:pointer;
+  text-align:left;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.app-shell .request-approval-action:not(:disabled):hover{
+  background:#e0edff;
+  border-color:#7fa9dc;
+  box-shadow:0 2px 8px #174b8718;
+}
+.app-shell .request-approval-action:not(:disabled):active{transform:translateY(1px)}
+.app-shell .request-approval-action:focus-visible{
+  outline:3px solid #8bb8f2;
+  outline-offset:2px;
+}
+.app-shell .request-approval-action:disabled{
+  opacity:.65;
+  cursor:not-allowed;
+  background:#f2f5f9;
+  border-color:#d7e0eb;
+  color:#64748b;
+  box-shadow:none;
+}
