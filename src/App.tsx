@@ -115,7 +115,8 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
     if(!clientId||!buttonRef.current)return;
     let cancelled=false;
     let script:HTMLScriptElement|null=null;
-    let buttons:{close:()=>Promise<void>}|null=null;
+    type PayPalButtonsInstance = ReturnType<typeof window.paypal.Buttons> & { close?: () => Promise<void> };
+    let buttons:PayPalButtonsInstance|null=null;
     const mount=()=>{
       const container=buttonRef.current;
       if(cancelled||!container||!container.isConnected||!window.paypal)return;
@@ -133,7 +134,9 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
         onCancel:()=>errorRef.current('Checkout was cancelled. No payment was captured.'),
         onError:(error)=>errorRef.current(error instanceof Error?error.message:'PayPal Sandbox checkout encountered an error.'),
       });
-      buttons.render(container).catch(error=>{
+      const activeButtons=buttons;
+      if(!activeButtons)return;
+      activeButtons.render(container).catch((error:unknown)=>{
         if(!cancelled)errorRef.current(error instanceof Error?error.message:'Could not load PayPal Sandbox buttons.');
       });
     };
@@ -154,7 +157,7 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
       // Let the PayPal SDK dispose of its own iframe/button DOM. Do not call
       // replaceChildren(): PayPal may still be using this container.
       const activeButtons=buttons;
-      if(activeButtons){
+      if(activeButtons?.close){
         void activeButtons.close().catch(()=>undefined);
       }
     };
