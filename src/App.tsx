@@ -348,14 +348,21 @@ const App = () => {
   const requestApprovalForProduct = async (item:NonNullable<AiResearch['products']>[number]) => {
     if(!apiToken){setApiError('Sign in to prepare a protected purchase request.');return;}
     if(!item.selectionToken){setApiError('PayPilot could not verify this seller price in INR. Choose a listing with verified INR pricing or run a fresh search.');return;}
-    const priceText=String(item.price||'');
-    if(!/(?:₹|\\bINR\\b|\\bRs\\.?\\s*)/i.test(priceText)){setApiError('The seller price must explicitly show INR (₹ or Rs.) before it can enter your INR budget.');return;}
-    const priceMatch=priceText.match(/(?:₹|\\bINR\\b|\\bRs\\.?\\s*)([\\d,]+(?:\\.\\d{1,2})?)|([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:INR|Rs\\.?)/i);
-    const amount=Number((priceMatch?.[1]||priceMatch?.[2]||'').replace(/,/g,''));
-    if(!Number.isFinite(amount)||amount<=0){setApiError('A verified INR seller price is required before requesting approval.');return;}
+    const priceText = String(item.price || '');
+    // Match an explicit INR symbol/code and parse the numeric amount.
+    if (!/(?:₹|\bINR\b|\bRs\.?\s*)/i.test(priceText)) {
+      setApiError('The seller price must explicitly show INR (₹ or Rs.) before it can enter your INR budget.');
+      return;
+    }
+    const priceMatch = priceText.match(/(?:₹|\bINR\b|\bRs\.?\s*)([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?)/i);
+    const amount = Number((priceMatch?.[1] || priceMatch?.[2] || '').replace(/,/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setApiError('A verified INR seller price is required before requesting approval.');
+      return;
+    }
     setShoppingBusy(true);setApiError('');
     try {
-      const chosen=aiResearch?.result.options.find(option=>option.product.toLowerCase()===item.title.toLowerCase());
+      const chosen = aiResearch?.result.options?.find(option => option.product.toLowerCase() === item.title.toLowerCase());
       const data=await apiRequest<{approval:any;message?:string}>('/api/approvals',apiToken,{method:'POST',body:JSON.stringify({merchant:item.merchant,item:item.title,category:purchaseCategoryFor(item.title,productSearch),amount,userGoal:productSearch,recommendationSummary:aiResearch?.result.summary||'',recommendationReason:chosen?.reason||'Selected from a seller-backed result. Verify final details with the merchant.',rejectedAlternatives:aiResearch?.result.rejectedAlternatives||[],productUrl:item.url,productImage:item.image,currency:'INR',selectionToken:item.selectionToken})});
       setShoppingApproval(data.approval);
       setShoppingStage('protect');
