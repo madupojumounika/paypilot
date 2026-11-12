@@ -140,6 +140,106 @@ router.post('/orders', async (req, res, next) => {
   }
 });
 
+
+async function completeVerifiedCapture(transaction, orderId, data, res) {
+  const capture = data.purchase_units?.[0]?.payments?.captures?.[0];
+  const captureAmount = capture?.amount;
+  const expected = amountString(transaction.amountUSD);
+  const amountMatches = captureAmount?.currency_code === 'USD' && amountString(Number(captureAmount.value)) === expected;
+
+  if (data.status === 'COMPLETED' && capture?.id && amountMatches) {
+    transaction.paymentStatus = 'COMPLETED';
+    transaction.status = 'payment_completed';
+    transaction.paymentExecuted = true;
+    transaction.paypalCaptureId = capture.id;
+    transaction.capturedAt = transaction.capturedAt || new Date();
+    transaction.receiptNumber = transaction.receiptNumber || 'PP-' + transaction.id.slice(-8).toUpperCase();
+    await transaction.save();
+    await AuditEvent.create({
+      userId: transaction.userId,
+      action: 'payment.captured',
+      entityType: 'transaction',
+      entityId: transaction._id,
+      details: { paypalOrderId: orderId, paypalCaptureId: capture.id, amountINR: transaction.amount, amountUSD: transaction.amountUSD, currency: 'USD', verified: true, recovered: true },
+    });
+    return res.json({ status: 'COMPLETED', receipt: receiptFor(transaction), recovered: true });
+  }
+
+  if (data.status === 'PENDING') {
+    transaction.paymentStatus = 'PENDING';
+    transaction.status = 'payment_pending';
+    await transaction.save();
+    return res.status(202).json({ status: 'PENDING', message: 'PayPal reports that the payment is pending. It is not marked as completed.' });
+  }
+
+  transaction.paymentStatus = amountMatches ? 'FAILED' : 'AMOUNT_MISMATCH';
+  transaction.status = 'payment_failed';
+  transaction.paymentExecuted = false;
+  await transaction.save();
+  return res.status(502).json({ error: amountMatches ? 'PayPal did not return a completed capture. The payment is not marked as successful.' : 'The captured amount did not match the original accepted USD estimate. The payment is flagged for review.' });
+}
+
+router.post('/recover', async (req, res, next) => {
+  try {
+    const { quoteId } = req.body || {};
+    if (!mongoose.isValidObjectId(quoteId)) return res.status(400).json({ error: 'A valid conversion estimate is required to recover this payment.' });
+    const quote = await FxQuote.findOne({ _id: quoteId, userId: req.userId });
+    if (!quote) return res.status(404).json({ error: 'Conversion estimate not found for this account.' });
+
+    const transaction = await Transaction.findOne({
+      approvalId: quote.approvalId,
+      userId: req.userId,
+      paypalOrderId: { $ne: '' },
+      paymentExecuted: false,
+    });
+    if (!transaction) return res.status(404).json({ error: 'No existing unpaid PayPal order was found for this purchase.' });
+    if (transaction.paymentStatus === 'COMPLETED' || transaction.paymentExecuted) {
+      return res.json({ status: 'COMPLETED', alreadyCaptured: true, receipt: receiptFor(transaction) });
+    }
+    if (!['ORDER_CREATED', 'CAPTURE_UNKNOWN', 'PENDING'].includes(transaction.paymentStatus)) {
+      return res.status(409).json({ error: 'The saved PayPal order is not eligible for recovery. No new order was created.' });
+    }
+
+    const accessToken = await getAccessToken();
+    const orderResponse = await fetch(PAYPAL_API + '/v2/checkout/orders/' + encodeURIComponent(transaction.paypalOrderId), {
+      headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
+      signal: AbortSignal.timeout(12000),
+    });
+    const order = await orderResponse.json();
+    if (!orderResponse.ok || !order.status) {
+      return res.status(503).json({ error: 'PayPal could not verify the existing order. No capture was attempted.' });
+    }
+    if (order.status === 'COMPLETED') {
+      return completeVerifiedCapture(transaction, transaction.paypalOrderId, order, res);
+    }
+    if (order.status !== 'APPROVED') {
+      return res.status(409).json({ error: 'The existing PayPal order is ' + order.status + '. Recovery is only available for an approved order.' });
+    }
+
+    const captureResponse = await fetch(PAYPAL_API + '/v2/checkout/orders/' + encodeURIComponent(transaction.paypalOrderId) + '/capture', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': 'application/json',
+        'PayPal-Request-Id': 'ppcap-' + transaction.id,
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(20000),
+    });
+    const captureData = await captureResponse.json();
+    if (!captureResponse.ok) {
+      transaction.paymentStatus = 'CAPTURE_UNKNOWN';
+      await transaction.save();
+      return res.status(502).json({ error: 'PayPal did not confirm the recovery capture. The payment is not marked as completed. Check the order status before retrying.' });
+    }
+    return completeVerifiedCapture(transaction, transaction.paypalOrderId, captureData, res);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') return res.status(503).json({ error: 'PayPal recovery timed out. The payment is not marked as completed; verify the order before retrying.' });
+    return next(error);
+  }
+});
+
 router.post('/capture', async (req, res, next) => {
   try {
     const orderId = typeof req.body?.orderID === 'string' ? req.body.orderID.trim() : '';
