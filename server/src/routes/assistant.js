@@ -227,7 +227,8 @@ function groupColourVariants(products = []) {
     if (group.variants.length < 2) return { ...group, variants: undefined };
     const priced = group.variants.filter(variant => variant.price);
     const preferred = priced[0] || group.variants[0];
-    return { ...group, title: productVariantIdentity(group.title) ? group.title.replace(/\s*[-–|,]?\s*(?:black|white|blue|pink|green|red|silver|grey|gray|beige|purple|gold|rose gold)\s*(?::\s*amazon\.in.*)?$/i, '').trim() : group.title, url: preferred.url, image: preferred.image || group.image, price: preferred.price || null, selectionToken: preferred.selectionToken || undefined };
+    const { selectionToken, ...groupWithoutToken } = group;
+    return { ...groupWithoutToken, title: group.title.replace(/\s*[-–|,]?\s*(?:black|white|blue|pink|green|red|silver|grey|gray|beige|purple|gold|rose gold)\s*(?::\s*amazon\.in.*)?$/i, '').trim(), url: preferred.url, image: preferred.image || group.image, price: preferred.price || null };
   });
 }
 
