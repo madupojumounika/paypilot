@@ -1285,3 +1285,15 @@
 .ai-comparison-best strong{color:#087f73}
 .app-shell.dark .ai-comparison-best{background:#172d27;border-color:#315047;color:#a3b9af}
 .app-shell.dark .ai-comparison-best strong{color:#9be0ce}
+
+
+/* Clear next action after product comparison and saved-product refresh. */
+.app-shell .shopping-next-step{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:18px 0;padding:16px 18px;border:1px solid var(--border);border-left:3px solid #168c78;border-radius:10px;background:var(--panel)}
+.app-shell .shopping-next-step>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.app-shell .shopping-next-step strong{font-size:13px;color:var(--text)}
+.app-shell .shopping-next-step p{margin:0;color:var(--muted);font-size:11px;line-height:1.6}
+.app-shell .shopping-next-step-count{flex:none;padding:7px 10px;border-radius:7px;background:var(--surface);color:var(--muted);font-size:10px;font-weight:750}
+.app-shell .saved-product-next-step{display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:4px}
+.app-shell.dark .shopping-next-step{background:#182c27;border-color:#315047;border-left-color:#65c7ad}
+.app-shell.dark .shopping-next-step strong{color:#e3f2eb}
+@media(max-width:700px){.app-shell .shopping-next-step{align-items:flex-start;flex-direction:column}}
