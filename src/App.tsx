@@ -115,7 +115,7 @@ function PayPalSandboxButton({quoteId,token,onCompleted,onError}:{quoteId:string
     if(!clientId||!buttonRef.current)return;
     let cancelled=false;
     let script:HTMLScriptElement|null=null;
-    type PayPalButtonsInstance = ReturnType<typeof window.paypal.Buttons> & { close?: () => Promise<void> };
+    type PayPalButtonsInstance = { render: (container: HTMLElement) => Promise<void>; close?: () => Promise<void> };
     let buttons:PayPalButtonsInstance|null=null;
     const mount=()=>{
       const container=buttonRef.current;
